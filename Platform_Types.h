@@ -9,21 +9,18 @@
 #define PLATFORM_TYPES_H_
 
 /* Id for our team in the AUTOSAR, for example ID = 88) */
-#define PLATFORM_VENDOR_ID                  	(88U)
-
-/* Module Id */
-#define PLATFORM_MODULE_ID                  	(199U)
+#define PLATFORM_VENDOR_ID                  (88U)
 
 /* Module Version 1.0.0 */
-#define PLATFORM_SW_MAJOR_VERSION				(1U)
-#define PLATFORM_SW_MINOR_VERSION           	(0U)
-#define PLATFORM_SW_PATCH_VERSION           	(0U)
+#define PLATFORM_SW_MAJOR_VERSION			(1U)
+#define PLATFORM_SW_MINOR_VERSION           (0U)
+#define PLATFORM_SW_PATCH_VERSION           (0U)
 
 
 /* AUTOSAR Version 4.3.1 */
-#define PLATFORM_AR_RELEASE_MAJOR_VERSION		(4U)
-#define PLATFORM_AR_RELEASE_MINOR_VERSION   	(3U)
-#define PLATFORM_AR_RELEASE_REVISION_VERSION   	(1U)
+#define COMPILER_AR_RELEASE_MAJOR_VERSION	(4U)
+#define COMPILER_AR_RELEASE_MINOR_VERSION   (3U)
+#define COMPILER_AR_RELEASE_PATCH_VERSION   (1U)
 
 
 /* CPU Register Type Width */
