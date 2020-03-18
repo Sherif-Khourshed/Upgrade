@@ -1,7 +1,7 @@
 /*
  * Can_GeneralTypes.h
  *
- *  Created on: Mar 1, 2020
+ *  Created on: Mar 7, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -21,9 +21,9 @@
 
 
 /* AUTOSAR Version 4.3.1 */
-#define CAN_GENERALTYPES_AR_RELEASE_MAJOR_VERSION		(4U)
-#define CAN_GENERALTYPES_AR_RELEASE_MINOR_VERSION   	(3U)
-#define CAN_GENERALTYPES_AR_RELEASE_REVISION_VERSION   	(1U)
+#define CAN_GENERALTYPES_AR_MAJOR_VERSION		(4U)
+#define CAN_GENERALTYPES_AR_MINOR_VERSION   	(3U)
+#define CAN_GENERALTYPES_AR_PATCH_VERSION   	(1U)
 
 #include "Std_Types.h"
 /* AUTOSAR Version checking between Std Types and CanGeneralTypes */

@@ -1,7 +1,7 @@
 /*
  * Compiler.h
  *
- *  Created on: Feb 22, 2020
+ *  Created on: Feb 23, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -9,21 +9,18 @@
 #define COMPILER_H_
 
 /* Id for our team in the AUTOSAR, for example ID = 88) */
-#define COMPILER_VENDOR_ID                  	(88U)
-
-/* Module Id */
-#define COMPILER_MODULE_ID                  	(198U)
+#define PLATFORM_VENDOR_ID                  (88U)
 
 /* Module Version 1.0.0 */
-#define COMPILER_SW_MAJOR_VERSION				(1U)
-#define COMPILER_SW_MINOR_VERSION           	(0U)
-#define COMPILER_SW_PATCH_VERSION           	(0U)
+#define PLATFORM_SW_MAJOR_VERSION			(1U)
+#define PLATFORM_SW_MINOR_VERSION           (0U)
+#define PLATFORM_SW_PATCH_VERSION           (0U)
 
 
 /* AUTOSAR Version 4.3.1 */
-#define COMPILER_AR_RELEASE_MAJOR_VERSION		(4U)
-#define COMPILER_AR_RELEASE_MINOR_VERSION  		(3U)
-#define COMPILER_AR_RELEASE_REVISION_VERSION  	(1U)
+#define COMPILER_AR_RELEASE_MAJOR_VERSION	(4U)
+#define COMPILER_AR_RELEASE_MINOR_VERSION   (3U)
+#define COMPILER_AR_RELEASE_PATCH_VERSION   (1U)
 
 /* The memory class AUTOMATIC shall be provided as empty definition, used for the declaration of local pointers */
 #define AUTOMATIC
@@ -42,49 +39,15 @@
 //#define LOCAL_INLINE
 #define LOCAL_INLINE	static inline
 
-
+/*
 // This is used to define the abstraction of compiler keyword static
 #define STATIC			static
-
+*/
 
 /*
  * Functions definitions supported for old compiler for ptr (near and far)
- * not used know(Compiler Dependent)
+ * not used know
  */
 
-/* FUNC */
-#define FUNC(rettype, memclass)						TYPEDEF
-
-/* FUNC_P2CONST */
-#define FUNC_P2CONST(rettype, ptrclass, memclass)	TYPEDEF
-
-/* FUNC_P2VAR */
-#define FUNC_P2VAR(rettype, ptrclass, memclass)		TYPEDEF
-
-/* P2VAR */
-#define P2VAR(ptrtype, memclass, ptrclass)			TYPEDEF
-
-/* P2CONST */
-#define P2CONST(ptrtype, memclass, ptrclass)		TYPEDEF
-
-/* CONSTP2VAR */
-#define CONSTP2VAR(ptrtype, memclass, ptrclass)		TYPEDEF
-
-/* CONSTP2CONST */
-#define CONSTP2CONST(ptrtype, memclass, ptrclass)	TYPEDEF
-
-/* P2FUNC */
-#define P2FUNC(rettype, ptrclass, fctname)			TYPEDEF
-
-/* CONSTP2FUNC */
-#define CONSTP2FUNC(rettype, ptrclass, fctname)		TYPEDEF
-
-/* CONST */
-#ifndef CONST	// As it usually uses
-#define CONST(consttype, memclass)					TYPEDEF
-#endif
-
-/* VAR */
-#define VAR(vartype, memclass)						TYPEDEF
 
 #endif /* COMPILER_H_ */
