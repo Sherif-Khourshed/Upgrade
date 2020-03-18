@@ -142,10 +142,10 @@ typedef struct
  */
 typedef enum
 {
-	EXTENDED_CAN,		/* CAN frame with extended identifier (29 bits) */
-	EXTENDED_FD_CAN,	/* CAN FD frame with extended identifier (29 bits) */
-	STANDARD_CAN,		/* CAN frame with standard identifier (11 bits) */
-	STANDARD_FD_CAN		/* CAN FD frame with standard identifier (11 bits)*/
+	CANIF_PDUCANID_EXTENDED_CAN,		/* CAN frame with extended identifier (29 bits) */
+	CANIF_PDUCANID_EXTENDED_FD_CAN,	/* CAN FD frame with extended identifier (29 bits) */
+	CANIF_PDUCANID_STANDARD_CAN,		/* CAN frame with standard identifier (11 bits) */
+	CANIF_PDUCANID_STANDARD_FD_CAN		/* CAN FD frame with standard identifier (11 bits)*/
 } CanIfTxPduCanIdTypeType;
 
 /* Defines the type of each transmit CAN L-PDU. */
@@ -157,15 +157,208 @@ typedef enum
 
 typedef enum
 {
-	CAN_NM,				/* CAN NM */
-	CAN_TP,				/* CAN TP */
-	CAN_TSYN,			/* Global Time Synchronization over CAN */
-	CDD,				/* Complex Driver */
-	J1939NM,			/* J1939Nm */
-	J1939TP,			/* J1939Tp */
-	PDUR,				/* PDU Router */
-	XCP					/* Extended Calibration Protocol */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_CAN_NM,				/* CAN NM */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_CAN_TP,				/* CAN TP */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_CAN_TSYN,			/* Global Time Synchronization over CAN */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_CDD,				/* Complex Driver */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_J1939NM,			/* J1939Nm */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_J1939TP,			/* J1939Tp */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_PDUR,				/* PDU Router */
+	CANIF_TXPDUUSERTXCONFIRMATIONUL_XCP					/* Extended Calibration Protocol */
 } CanIfTxPduUserTxConfirmationULType;
+
+/*
+ * CAN Identifier of receive CAN L-PDUs used by the CAN Driver for
+ * CAN L-PDU reception.
+ */
+typedef enum
+{
+	CANIF_RXPDUCANIDTYPE_EXTENDED_CAN,				/* CAN 2.0 or CAN FD frame with extended identifier (29 bits)*/
+	CANIF_RXPDUCANIDTYPE_EXTENDED_FD_CAN,			/* CAN FD frame with extended identifier (29 bits) */
+	CANIF_RXPDUCANIDTYPE_EXTENDED_NO_FD_CAN,			/* CAN 2.0 frame with extended identifier (29 bits) */
+	CANIF_RXPDUCANIDTYPE_STANDARD_CAN,				/* CAN 2.0 or CAN FD frame with standard identifier (11 bits) */
+	CANIF_RXPDUCANIDTYPE_STANDARD_FD_CAN,			/* CAN FD frame with standard identifier (11 bits) */
+	CANIF_RXPDUCANIDTYPE_STANDARD_NO_FD_CAN			/* CAN 2.0 frame with standard identifier (11 bits) */
+} CanIfRxPduCanIdTypeType;
+
+/*
+ * This parameter defines the upper layer (UL) module to which the
+ * indication of the successfully received CANRXPDUID has to be routed
+ * via <User_RxIndication>. This <User_RxIndication> has to be invoked
+ * when the indication of the configured CANRXPDUID will be received
+ * by an Rx indication event from the CAN Driver module. If no upper
+ * layer (UL) module is configured, no <User_RxIndication> has to be
+ * called in case of an Rx indication event of the CANRXPDUID from the
+ * CAN Driver module.
+ */
+typedef enum
+{
+	CANIF_RXPDUUSERRXINDICATIONUL_CAN_NM,						/* CAN NM */
+	CANIF_RXPDUUSERRXINDICATIONUL_CAN_TP,						/* CAN TP */
+	CANIF_RXPDUUSERRXINDICATIONUL_CAN_TSYN,					/* Global Time Synchronization over CAN */
+	CANIF_RXPDUUSERRXINDICATIONUL_CDD,						/* Complex Driver */
+	CANIF_RXPDUUSERRXINDICATIONUL_J1939NM,					/* J1939Nm */
+	CANIF_RXPDUUSERRXINDICATIONUL_J1939TP,					/* J1939Tp */
+	CANIF_RXPDUUSERRXINDICATIONUL_PDUR,						/* PDU Router */
+	CANIF_RXPDUUSERRXINDICATIONUL_XCP							/* Extended Calibration Protocol */
+} CanIfRxPduUserRxIndicationULType;
+
+/* Optional container that allows to map a range of CAN Ids to one PduId. */
+typedef struct
+{
+	/*
+	 * Lower CAN Identifier of a receive CAN L-PDU for identifier range
+	 * definition, in which all CAN Ids are mapped to one PduId.
+	 */
+	uint32 CanIfRxPduCanIdRangeLowerCanId;
+
+	/*
+	 * Upper CAN Identifier of a receive CAN L-PDU for identifier range
+	 * definition, in which all CAN Ids are mapped to one PduId.
+	 */
+	uint32 CanIfRxPduCanIdRangeUpperCanId;
+} CanIfRxPduCanIdRange;
+
+/*
+ * Specifies whether a configured Range of CAN Ids shall only consider
+ * standard CAN Ids or extended CAN Ids.
+ */
+typedef enum
+{
+	EXTENDED,				/* All the CANIDs are of type extended only (29 bit). */
+	STANDARD				/* All the CANIDs are of type standard only (11 bit). */
+} CanIfHrhRangeRxPduRangeCanIdTypeType;
+
+/*
+ * Defines the parameters required for configuring multiple CANID
+ * ranges for a given same HRH.
+ */
+typedef struct
+{
+	/*
+	 * CAN Identifier used as base value in combination with
+	 * CanIfHrhRangeMask for a masked ID range in which all CAN Ids shall
+	 * pass the software filtering. The size of this parameter is limited by
+	 * CanIfHrhRangeRxPduRangeCanIdType.
+	 */
+	uint32 CanIfHrhRangeBaseId;
+
+	/*
+	 * Used as mask value in combination with CanIfHrhRangeBaseId for a
+	 * masked ID range in which all CAN Ids shall pass the software filtering.
+	 * The size of this parameter is limited by
+	 * CanIfHrhRangeRxPduRangeCanIdType.
+	 */
+	uint32 CanIfHrhRangeMask;
+
+	/*
+	 * Lower CAN Identifier of a receive CAN L-PDU for identifier range
+	 * definition, in which all CAN Ids shall pass the software filtering.
+	 */
+	uint32 CanIfHrhRangeRxPduLowerCanId;
+
+	/*
+	 * Upper CAN Identifier of a receive CAN L-PDU for identifier range
+	 * definition, in which all CAN Ids shall pass the software filtering.
+	 */
+	uint32 CanIfHrhRangeRxPduUpperCanId;
+
+	/*
+	 * Specifies whether a configured Range of CAN Ids shall only consider
+	 * standard CAN Ids or extended CAN Ids.
+	 */
+	CanIfHrhRangeRxPduRangeCanIdTypeType CanIfHrhRangeRxPduRangeCanIdType;
+} CanIfHrhRangeCfg;
+
+/*
+ * This container contains the configuration (parameters) of an addressed
+ * CAN controller by an underlying CAN Driver module. This container is
+ * configurable per CAN controller.
+ */
+typedef struct
+{
+	/*
+	 * This parameter abstracts from the CAN Driver specific parameter
+	 * Controller. Each controller of all connected CAN Driver modules shall
+	 * be assigned to one specific ControllerId of the CanIf. Range:
+	 * 0..number of configured controllers of all CAN Driver modules.
+	 */
+	uint8 CanIfCtrlId;
+
+	/*
+	 * This parameter defines if a respective controller of the referenced CAN
+	 * Driver modules is queriable for wake up events.
+	 */
+	boolean CanIfCtrlWakeupSupport;
+
+	/*
+	 * This parameter references to the logical handle of the underlying CAN
+	 * controller from the CAN Driver module to be served by the CAN
+	 * Interface module. The following parameters of CanController config
+	 * container shall be referenced by this link: CanControllerId,
+	 * CanWakeupSourceRef
+	 * Range: 0..max. number of underlying supported CAN controllers
+	 *
+	 * dependency: amount of CAN controllers.
+	 */
+	/*Can_ConfigType* CanIfCtrlCanCtrlRef;*/
+} CanIfCtrlCfg;
+
+/* This container contains parameters related to each HTH. */
+typedef struct
+{
+	/*
+	 * Reference to controller Id to which the HTH belongs to. A controller
+	 * can contain one or more HTHs.
+	 */
+	CanIfCtrlCfg* CanIfHthCanCtrlIdRef;
+
+	/*
+	 * The parameter refers to a particular HTH object in the CanDrv
+	 * configuration (see CanHardwareObject ECUC_Can_00324).
+	 * CanIf receives the following information of the CanDrv module by
+	 * this reference:
+	 * CanHandleType (see ECUC_Can_00323)
+	 * CanObjectId (see ECUC_Can_00326)
+	 */
+	/*CanHardwareObject* CanIfHthIdSymRef;*/
+} CanIfHthCfg;
+
+/*
+ * This container contains configuration parameters for each hardware
+ * receive object (HRH).
+ */
+typedef struct
+{
+	/*
+	 * Selects the hardware receive objects by using the HRH range/list from
+	 * CAN Driver configuration to define, for which HRH a software filtering
+	 * has to be performed at during receive processing.
+	 */
+	boolean CanIfHrhSoftwareFilter;
+
+	/*
+	 * Reference to controller Id to which the HRH belongs to. A controller
+	 * can contain one or more HRHs.
+	 */
+	CanIfCtrlCfg* CanIfHrhCanCtrlIdRef;
+
+	/*
+	 * The parameter refers to a particular HRH object in the CanDrv
+	 * configuration (see CanHardwareObject ECUC_Can_00324).
+	 * CanIf receives the following information of the CanDrv module by
+	 * this reference:
+	 * CanHandleType (see ECUC_Can_00323)
+	 * CanObjectId (see ECUC_Can_00326)
+	 */
+	/*CanHardwareObject* CanIfHrhIdSymRef;*/
+
+	/*
+	 * Defines the parameters required for configuring
+	 * multiple CANID ranges for a given same HRH.
+	 */
+	CanIfHrhRangeCfg* HrhRangeCfg;
+} CanIfHrhCfg;
 
 /*
  * This container contains the Txbuffer configuration. Multiple buffers with
@@ -314,273 +507,6 @@ typedef struct
 } CanIfTxPduCfg;
 
 /*
- * CAN Identifier of receive CAN L-PDUs used by the CAN Driver for
- * CAN L-PDU reception.
- */
-typedef enum
-{
-	EXTENDED_CAN,				/* CAN 2.0 or CAN FD frame with extended identifier (29 bits)*/
-	EXTENDED_FD_CAN,			/* CAN FD frame with extended identifier (29 bits) */
-	EXTENDED_NO_FD_CAN,			/* CAN 2.0 frame with extended identifier (29 bits) */
-	STANDARD_CAN,				/* CAN 2.0 or CAN FD frame with standard identifier (11 bits) */
-	STANDARD_FD_CAN,			/* CAN FD frame with standard identifier (11 bits) */
-	STANDARD_NO_FD_CAN			/* CAN 2.0 frame with standard identifier (11 bits) */
-} CanIfRxPduCanIdTypeType;
-
-/*
- * This parameter defines the upper layer (UL) module to which the
- * indication of the successfully received CANRXPDUID has to be routed
- * via <User_RxIndication>. This <User_RxIndication> has to be invoked
- * when the indication of the configured CANRXPDUID will be received
- * by an Rx indication event from the CAN Driver module. If no upper
- * layer (UL) module is configured, no <User_RxIndication> has to be
- * called in case of an Rx indication event of the CANRXPDUID from the
- * CAN Driver module.
- */
-typedef enum
-{
-	CAN_NM,						/* CAN NM */
-	CAN_TP,						/* CAN TP */
-	CAN_TSYN,					/* Global Time Synchronization over CAN */
-	CDD,						/* Complex Driver */
-	J1939NM,					/* J1939Nm */
-	J1939TP,					/* J1939Tp */
-	PDUR,						/* PDU Router */
-	XCP							/* Extended Calibration Protocol */
-} CanIfRxPduUserRxIndicationULType;
-
-/* Optional container that allows to map a range of CAN Ids to one PduId. */
-typedef struct
-{
-	/*
-	 * Lower CAN Identifier of a receive CAN L-PDU for identifier range
-	 * definition, in which all CAN Ids are mapped to one PduId.
-	 */
-	uint32 CanIfRxPduCanIdRangeLowerCanId;
-
-	/*
-	 * Upper CAN Identifier of a receive CAN L-PDU for identifier range
-	 * definition, in which all CAN Ids are mapped to one PduId.
-	 */
-	uint32 CanIfRxPduCanIdRangeUpperCanId;
-} CanIfRxPduCanIdRange;
-
-/*
- * This container contains the configuration (parameters) of each receive
- * CAN L-PDU.
- *
- * The SHORT-NAME of "CanIfRxPduConfig" container itself represents
- * the symbolic name of Receive L-PDU.
- *
- * This L-SDU produces a meta data item of type CAN_ID_32.
- */
-typedef struct
-{
-	/*
-	 * CAN Identifier of Receive CAN L-PDUs used by the CAN Interface.
-	 * Exa: Software Filtering. This parameter is used if exactly one Can
-	 * Identifier is assigned to the Pdu. If a range is assigned then the
-	 * CanIfRxPduCanIdRange parameter shall be used.
-	 * Range: 11 Bit For Standard CAN Identifier ... 29 Bit For Extended CAN identifier
-	 */
-	uint32 CanIfRxPduCanId;
-
-	/*
-	 * Identifier mask which denotes relevant bits in the CAN Identifier. This
-	 * parameter defines a CAN Identifier range in an alternative way to
-	 * CanIfRxPduCanIdRange. It identifies the bits of the configured CAN
-	 * Identifier that must match the received CAN Identifier. Range: 11 bits
-	 * for Standard CAN Identifier, 29 bits for Extended CAN Identifier.
-	 */
-	uint32 CanIfRxPduCanIdMask;
-
-	/*
-	 * CAN Identifier of receive CAN L-PDUs used by the CAN Driver for
-	 * CAN L-PDU reception.
-	 */
-	CanIfRxPduCanIdTypeType CanIfRxPduCanIdType;
-
-	/*
-	 * Data length of the received CAN L-PDUs used by the CAN Interface.
-	 * This information is used for Data Length Check. Additionally it might
-	 * specify the valid bits in case of the discrete DLC for CAN FD L-PDUs > 8 bytes.
-	 *
-	 * The data area size of a CAN L-PDU can have a range from 0 to 64 bytes.
-	 *
-	 * dependency: If CanIfRxPduDataLength > 8 then
-	 * CanIfRxPduCanIdType must not be STANDARD_NO_FD_CAN or EXTENDED_NO_FD_CAN.
-	 */
-	uint8 CanIfRxPduDataLength;
-
-	/*
-	 * ECU wide unique, symbolic handle for receive CAN L-SDU. It shall
-	 * fulfill ANSI/AUTOSAR definitions for constant defines.
-	 *
-	 * Range: 0..max. number of defined CanRxPduIds
-	 */
-	PduIdType CanIfRxPduId;
-
-	/*
-	 * Enables and disables the Rx buffering for reading of received L-SDU data.
-	 *
-	 * dependency: CANIF_CANPDUID_READDATA_API must be enabled.
-	 */
-#if (CANIF_PUBLIC_READ_RX_PDU_DATA_API == STD_ON)
-	boolean CanIfRxPduReadData;
-#endif
-
-	/* Enables and disables receive indication for each receive CAN L-SDU
-	 * for reading its notification status.
-	 *
-	 * dependency: CANIF_READRXPDU_NOTIFY_STATUS_API must be enabled.
-	 */
-#if (CANIF_PUBLIC_READ_RX_PDU_NOTIFY_STATUS_API == STD_ON)
-	boolean CanIfRxPduReadNotifyStatus;
-#endif
-
-	/*
-	 * This parameter defines the name of the <User_RxIndication>. This
-	 * parameter depends on the parameter
-	 * CANIF_RXPDU_USERRXINDICATION_UL. If
-	 * CANIF_RXPDU_USERRXINDICATION_UL equals CAN_TP,
-	 * CAN_NM, PDUR, XCP, CAN_TSYN, J1939NM or J1939TP, the name
-	 * of the <User_RxIndication> is fixed. If
-	 * CANIF_RXPDU_USERRXINDICATION_UL equals CDD, the name of
-	 * the <User_RxIndication> is selectable.
-	 */
-	void (*CanIfRxPduUserRxIndication)(PduIdType);
-
-	/*
-	 * This parameter defines the upper layer (UL) module to which the
-	 * indication of the successfully received CANRXPDUID has to be routed
-	 * via <User_RxIndication>. This <User_RxIndication> has to be invoked
-	 * when the indication of the configured CANRXPDUID will be received
-	 * by an Rx indication event from the CAN Driver module. If no upper
-	 * layer (UL) module is configured, no <User_RxIndication> has to be
-	 * called in case of an Rx indication event of the CANRXPDUID from the
-	 * CAN Driver module.
-	 */
-	CanIfRxPduUserRxIndicationULType CanIfRxPduUserRxIndicationUL;
-
-	/*
-	 * The HRH to which Rx L-PDU belongs to, is referred through this parameter.
-	 *
-	 * dependency: This information has to be derived from the CAN Driver configuration.
-	 */
-	CanIfHrhCfg* CanIfRxPduHrhIdRef;
-
-	/* Optional container that allows to map a range of CAN Ids to one PduId. */
-	CanIfRxPduCanIdRange* CanIfRxPduCanIdRangePtr;
-} CanIfRxPduCfg;
-
-/*
- * Specifies whether a configured Range of CAN Ids shall only consider
- * standard CAN Ids or extended CAN Ids.
- */
-typedef enum
-{
-	EXTENDED,				/* All the CANIDs are of type extended only (29 bit). */
-	STANDARD				/* All the CANIDs are of type standard only (11 bit). */
-} CanIfHrhRangeRxPduRangeCanIdTypeType;
-
-/*
- * Defines the parameters required for configuring multiple CANID
- * ranges for a given same HRH.
- */
-typedef struct
-{
-	/*
-	 * CAN Identifier used as base value in combination with
-	 * CanIfHrhRangeMask for a masked ID range in which all CAN Ids shall
-	 * pass the software filtering. The size of this parameter is limited by
-	 * CanIfHrhRangeRxPduRangeCanIdType.
-	 */
-	uint32 CanIfHrhRangeBaseId;
-
-	/*
-	 * Used as mask value in combination with CanIfHrhRangeBaseId for a
-	 * masked ID range in which all CAN Ids shall pass the software filtering.
-	 * The size of this parameter is limited by
-	 * CanIfHrhRangeRxPduRangeCanIdType.
-	 */
-	uint32 CanIfHrhRangeMask;
-
-	/*
-	 * Lower CAN Identifier of a receive CAN L-PDU for identifier range
-	 * definition, in which all CAN Ids shall pass the software filtering.
-	 */
-	uint32 CanIfHrhRangeRxPduLowerCanId;
-
-	/*
-	 * Upper CAN Identifier of a receive CAN L-PDU for identifier range
-	 * definition, in which all CAN Ids shall pass the software filtering.
-	 */
-	uint32 CanIfHrhRangeRxPduUpperCanId;
-
-	/*
-	 * Specifies whether a configured Range of CAN Ids shall only consider
-	 * standard CAN Ids or extended CAN Ids.
-	 */
-	CanIfHrhRangeRxPduRangeCanIdTypeType CanIfHrhRangeRxPduRangeCanIdType;
-} CanIfHrhRangeCfg;
-
-/*
- * This container contains configuration parameters for each hardware
- * receive object (HRH).
- */
-typedef struct
-{
-	/*
-	 * Selects the hardware receive objects by using the HRH range/list from
-	 * CAN Driver configuration to define, for which HRH a software filtering
-	 * has to be performed at during receive processing.
-	 */
-	boolean CanIfHrhSoftwareFilter;
-
-	/*
-	 * Reference to controller Id to which the HRH belongs to. A controller
-	 * can contain one or more HRHs.
-	 */
-	CanIfCtrlCfg* CanIfHrhCanCtrlIdRef;
-
-	/*
-	 * The parameter refers to a particular HRH object in the CanDrv
-	 * configuration (see CanHardwareObject ECUC_Can_00324).
-	 * CanIf receives the following information of the CanDrv module by
-	 * this reference:
-	 * CanHandleType (see ECUC_Can_00323)
-	 * CanObjectId (see ECUC_Can_00326)
-	 */
-	/*CanHardwareObject* CanIfHrhIdSymRef;*/
-
-	/*
-	 * Defines the parameters required for configuring
-	 * multiple CANID ranges for a given same HRH.
-	 */
-	CanIfHrhRangeCfg* HrhRangeCfg;
-} CanIfHrhCfg;
-
-/* This container contains parameters related to each HTH. */
-typedef struct
-{
-	/*
-	 * Reference to controller Id to which the HTH belongs to. A controller
-	 * can contain one or more HTHs.
-	 */
-	CanIfCtrlCfg* CanIfHthCanCtrlIdRef;
-
-	/*
-	 * The parameter refers to a particular HTH object in the CanDrv
-	 * configuration (see CanHardwareObject ECUC_Can_00324).
-	 * CanIf receives the following information of the CanDrv module by
-	 * this reference:
-	 * CanHandleType (see ECUC_Can_00323)
-	 * CanObjectId (see ECUC_Can_00326)
-	 */
-	/*CanHardwareObject* CanIfHthIdSymRef;*/
-} CanIfHthCfg;
-
-/*
  * This container contains the references to the configuration setup of
  * each underlying CAN Driver.
  */
@@ -595,69 +521,6 @@ typedef struct
 	/* This container contains parameters related to each HTH. */
 	CanIfHthCfg* HthCfg;
 } CanIfInitHohCfg;
-
-typedef struct
-{
-	/*
-	 * Selects the CAN Interface specific configuration setup. This type of the
-	 * external data structure shall contain the post build initialization data for
-	 * the CAN Interface for all underlying CAN Drivers.
-	 *
-	 * constant to CanIf_ConfigType
-	 */
-    uint8 CanIfInitCfgSet[32];
-
-    /*
-     * Maximum total size of all Tx buffers. This parameter is needed only in
-     * case of post-build loadable implementation using static memory allocation.
-     */
-    uint64 CanIfMaxBufferSize;
-
-    /*
-     * Maximum number of Pdus. This parameter is needed only in case of
-     * post-build loadable implementation using static memory allocation.
-     */
-    uint64 CanIfMaxRxPduCfg;
-
-    /*
-     * Maximum number of Pdus. This parameter is needed only in case of
-     * post-build loadable implementation using static memory allocation.
-     */
-    uint64 CanIfMaxTxPduCfg;
-
-    /*
-     * This container contains the configuration (parameters) of a transmit
-     * CAN L-PDU. It has to be configured as often as a transmit CAN L-PDU
-     * is needed.
-     *
-     * The SHORT-NAME of "CanIfTxPduConfig" container represents the
-     * symbolic name of Transmit L-PDU.
-     *
-     * This L-SDU consumes a meta data item of type CAN_ID_32.
-     *
-     * It may be an array.
-     */
-    CanIfTxPduCfg* CanIfTxPduCfgPtr[];
-
-    /*
-     * This container contains the configuration (parameters) of each receive
-     * CAN L-PDU.
-     * The SHORT-NAME of "CanIfRxPduConfig" container itself represents
-     * the symbolic name of Receive L-PDU.
-     * This L-SDU produces a meta data item of type CAN_ID_32.
-     *
-     * It may be an array.
-     */
-    CanIfRxPduCfg* CanIfRxPduCfgPtr[];
-
-    /*
-     * This container contains the references to the configuration setup of
-     * each underlying CAN Driver.
-     */
-    CanIfInitHohCfg* CanIfHohCfgPtr;
-} CanIfInitCfg;
-
-/*--------------------------------------------------------------------------------*/
 
 #if (CANIF_PUBLIC_PN_SUPPORT == STD_ON)
 /*
@@ -712,8 +575,8 @@ typedef enum
  */
 typedef enum
 {
-	CAN_SM,						/* CAN State Manager */
-	CDD							/* Complex Driver */
+	CANIF_DISPATCHUSERCTRLBUSOFFUL_CAN_SM,						/* CAN State Manager */
+	CANIF_DISPATCHUSERCTRLBUSOFFUL_CDD							/* Complex Driver */
 } CanIfDispatchUserCtrlBusOffULType;
 
 /*
@@ -723,8 +586,8 @@ typedef enum
  */
 typedef enum
 {
-	CAN_SM,						/* CAN State Manager */
-	CDD							/* Complex Driver */
+	CANIF_DISPATCHUSERCTRLMODEINDICATIONUL_CAN_SM,						/* CAN State Manager */
+	CANIF_DISPATCHUSERCTRLMODEINDICATIONUL_CDD							/* Complex Driver */
 } CanIfDispatchUserCtrlModeIndicationULType;
 
 /*
@@ -736,8 +599,8 @@ typedef enum
  */
 typedef enum
 {
-	CAN_SM,						/* CAN State Manager */
-	CDD							/* Complex Driver */
+	CANIF_DISPATCHUSERTRCVMODEINDICATIONUL_CAN_SM,						/* CAN State Manager */
+	CANIF_DISPATCHUSERTRCVMODEINDICATIONUL_CDD							/* Complex Driver */
 } CanIfDispatchUserTrcvModeIndicationULType;
 
 /*
@@ -752,8 +615,8 @@ typedef enum
 #if (CANIF_WAKEUP_SUPPORT == STD_ON)
 typedef enum
 {
-	CDD,						/* Complex Driver */
-	ECUM						/* ECU State Manager */
+	CANIF_DISPATCHUSERVALIDATEWAKEUPEVENTUL_CDD,						/* Complex Driver */
+	CANIF_DISPATCHUSERVALIDATEWAKEUPEVENTUL_ECUM						/* ECU State Manager */
 } CanIfDispatchUserValidateWakeupEventULType;
 #endif
 
@@ -926,42 +789,6 @@ typedef struct
 #endif
 } CanIfDispatchCfg;
 
-/*--------------------------------------------------------------------------------*/
-
-/*
- * This container contains the configuration (parameters) of an addressed
- * CAN controller by an underlying CAN Driver module. This container is
- * configurable per CAN controller.
- */
-typedef struct
-{
-	/*
-	 * This parameter abstracts from the CAN Driver specific parameter
-	 * Controller. Each controller of all connected CAN Driver modules shall
-	 * be assigned to one specific ControllerId of the CanIf. Range:
-	 * 0..number of configured controllers of all CAN Driver modules.
-	 */
-	uint8 CanIfCtrlId;
-
-	/*
-	 * This parameter defines if a respective controller of the referenced CAN
-	 * Driver modules is queriable for wake up events.
-	 */
-	boolean CanIfCtrlWakeupSupport;
-
-	/*
-	 * This parameter references to the logical handle of the underlying CAN
-	 * controller from the CAN Driver module to be served by the CAN
-	 * Interface module. The following parameters of CanController config
-	 * container shall be referenced by this link: CanControllerId,
-	 * CanWakeupSourceRef
-	 * Range: 0..max. number of underlying supported CAN controllers
-	 *
-	 * dependency: amount of CAN controllers.
-	 */
-	Can_ConfigType* CanIfCtrlCanCtrlRef;
-} CanIfCtrlCfg;
-
 /*
  * Configuration parameters for all the underlying CAN Driver modules
  * are aggregated under this container. For each CAN Driver module a
@@ -990,7 +817,113 @@ typedef struct
 	CanIfCtrlCfg CtrlCfg[NUM_OF_CAN_CONTROLLERS];
 } CanIfCtrlDrvCfg;
 
-/*--------------------------------------------------------------------------------*/
+/*
+ * This container contains the configuration (parameters) of each receive
+ * CAN L-PDU.
+ *
+ * The SHORT-NAME of "CanIfRxPduConfig" container itself represents
+ * the symbolic name of Receive L-PDU.
+ *
+ * This L-SDU produces a meta data item of type CAN_ID_32.
+ */
+typedef struct
+{
+	/*
+	 * CAN Identifier of Receive CAN L-PDUs used by the CAN Interface.
+	 * Exa: Software Filtering. This parameter is used if exactly one Can
+	 * Identifier is assigned to the Pdu. If a range is assigned then the
+	 * CanIfRxPduCanIdRange parameter shall be used.
+	 * Range: 11 Bit For Standard CAN Identifier ... 29 Bit For Extended CAN identifier
+	 */
+	uint32 CanIfRxPduCanId;
+
+	/*
+	 * Identifier mask which denotes relevant bits in the CAN Identifier. This
+	 * parameter defines a CAN Identifier range in an alternative way to
+	 * CanIfRxPduCanIdRange. It identifies the bits of the configured CAN
+	 * Identifier that must match the received CAN Identifier. Range: 11 bits
+	 * for Standard CAN Identifier, 29 bits for Extended CAN Identifier.
+	 */
+	uint32 CanIfRxPduCanIdMask;
+
+	/*
+	 * CAN Identifier of receive CAN L-PDUs used by the CAN Driver for
+	 * CAN L-PDU reception.
+	 */
+	CanIfRxPduCanIdTypeType CanIfRxPduCanIdType;
+
+	/*
+	 * Data length of the received CAN L-PDUs used by the CAN Interface.
+	 * This information is used for Data Length Check. Additionally it might
+	 * specify the valid bits in case of the discrete DLC for CAN FD L-PDUs > 8 bytes.
+	 *
+	 * The data area size of a CAN L-PDU can have a range from 0 to 64 bytes.
+	 *
+	 * dependency: If CanIfRxPduDataLength > 8 then
+	 * CanIfRxPduCanIdType must not be STANDARD_NO_FD_CAN or EXTENDED_NO_FD_CAN.
+	 */
+	uint8 CanIfRxPduDataLength;
+
+	/*
+	 * ECU wide unique, symbolic handle for receive CAN L-SDU. It shall
+	 * fulfill ANSI/AUTOSAR definitions for constant defines.
+	 *
+	 * Range: 0..max. number of defined CanRxPduIds
+	 */
+	PduIdType CanIfRxPduId;
+
+	/*
+	 * Enables and disables the Rx buffering for reading of received L-SDU data.
+	 *
+	 * dependency: CANIF_CANPDUID_READDATA_API must be enabled.
+	 */
+#if (CANIF_PUBLIC_READ_RX_PDU_DATA_API == STD_ON)
+	boolean CanIfRxPduReadData;
+#endif
+
+	/* Enables and disables receive indication for each receive CAN L-SDU
+	 * for reading its notification status.
+	 *
+	 * dependency: CANIF_READRXPDU_NOTIFY_STATUS_API must be enabled.
+	 */
+#if (CANIF_PUBLIC_READ_RX_PDU_NOTIFY_STATUS_API == STD_ON)
+	boolean CanIfRxPduReadNotifyStatus;
+#endif
+
+	/*
+	 * This parameter defines the name of the <User_RxIndication>. This
+	 * parameter depends on the parameter
+	 * CANIF_RXPDU_USERRXINDICATION_UL. If
+	 * CANIF_RXPDU_USERRXINDICATION_UL equals CAN_TP,
+	 * CAN_NM, PDUR, XCP, CAN_TSYN, J1939NM or J1939TP, the name
+	 * of the <User_RxIndication> is fixed. If
+	 * CANIF_RXPDU_USERRXINDICATION_UL equals CDD, the name of
+	 * the <User_RxIndication> is selectable.
+	 */
+	void (*CanIfRxPduUserRxIndication)(PduIdType);
+
+	/*
+	 * This parameter defines the upper layer (UL) module to which the
+	 * indication of the successfully received CANRXPDUID has to be routed
+	 * via <User_RxIndication>. This <User_RxIndication> has to be invoked
+	 * when the indication of the configured CANRXPDUID will be received
+	 * by an Rx indication event from the CAN Driver module. If no upper
+	 * layer (UL) module is configured, no <User_RxIndication> has to be
+	 * called in case of an Rx indication event of the CANRXPDUID from the
+	 * CAN Driver module.
+	 */
+	CanIfRxPduUserRxIndicationULType CanIfRxPduUserRxIndicationUL;
+
+	/*
+	 * The HRH to which Rx L-PDU belongs to, is referred through this parameter.
+	 *
+	 * dependency: This information has to be derived from the CAN Driver configuration.
+	 */
+	CanIfHrhCfg* CanIfRxPduHrhIdRef;
+
+	/* Optional container that allows to map a range of CAN Ids to one PduId. */
+	CanIfRxPduCanIdRange* CanIfRxPduCanIdRangePtr;
+} CanIfRxPduCfg;
 
 /*
  * This container contains the configuration (parameters) of one
@@ -1036,6 +969,68 @@ typedef struct
 	 */
 	CanIfTrcvCfg TrcvCfg[NUM_OF_CAN_TRCVS];
 } CanIfTrcvDrvCfg;
+
+/* This container contains the init parameters of the CAN Interface. */
+typedef struct
+{
+	/*
+	 * Selects the CAN Interface specific configuration setup. This type of the
+	 * external data structure shall contain the post build initialization data for
+	 * the CAN Interface for all underlying CAN Drivers.
+	 *
+	 * constant to CanIf_ConfigType
+	 */
+    uint8 CanIfInitCfgSet[32];
+
+    /*
+     * Maximum total size of all Tx buffers. This parameter is needed only in
+     * case of post-build loadable implementation using static memory allocation.
+     */
+    uint64 CanIfMaxBufferSize;
+
+    /*
+     * Maximum number of Pdus. This parameter is needed only in case of
+     * post-build loadable implementation using static memory allocation.
+     */
+    uint64 CanIfMaxRxPduCfg;
+
+    /*
+     * Maximum number of Pdus. This parameter is needed only in case of
+     * post-build loadable implementation using static memory allocation.
+     */
+    uint64 CanIfMaxTxPduCfg;
+
+    /*
+     * This container contains the configuration (parameters) of a transmit
+     * CAN L-PDU. It has to be configured as often as a transmit CAN L-PDU
+     * is needed.
+     *
+     * The SHORT-NAME of "CanIfTxPduConfig" container represents the
+     * symbolic name of Transmit L-PDU.
+     *
+     * This L-SDU consumes a meta data item of type CAN_ID_32.
+     *
+     * It may be an array.
+     */
+    CanIfTxPduCfg* CanIfTxPduCfgPtr;
+
+    /*
+     * This container contains the configuration (parameters) of each receive
+     * CAN L-PDU.
+     * The SHORT-NAME of "CanIfRxPduConfig" container itself represents
+     * the symbolic name of Receive L-PDU.
+     * This L-SDU produces a meta data item of type CAN_ID_32.
+     *
+     * It may be an array.
+     */
+    CanIfRxPduCfg* CanIfRxPduCfgPtr;
+
+    /*
+     * This container contains the references to the configuration setup of
+     * each underlying CAN Driver.
+     */
+    CanIfInitHohCfg* CanIfHohCfgPtr;
+} CanIfInitCfg;
 
 /*
  * This type defines a data structure for the post build parameters of the CAN
