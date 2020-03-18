@@ -176,9 +176,9 @@ Std_ReturnType CanIf_GetTrcvWakeupReason(uint8 TransceiverId, CanTrcv_TrcvWakeup
 
 Std_ReturnType CanIf_SetTrcvWakeupMode(uint8 TransceiverId, CanTrcv_TrcvWakeupModeType TrcvWakeupMode);
 
-Std_ReturnType CanIf_CheckWakeup(EcuM_WakeupSourceType WakeupSource);
+/*Std_ReturnType CanIf_CheckWakeup(EcuM_WakeupSourceType WakeupSource);*/
 
-Std_ReturnType CanIf_CheckValidation(EcuM_WakeupSourceType WakeupSource);
+/*Std_ReturnType CanIf_CheckValidation(EcuM_WakeupSourceType WakeupSource);*/
 
 CanIf_NotifStatusType CanIf_GetTxConfirmationState(uint8 ControllerId);
 
