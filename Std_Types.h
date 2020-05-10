@@ -12,21 +12,18 @@
 #include "Compiler.h"
 
 /* Id for our team in the AUTOSAR, for example ID = 88) */
-#define STD_TYPES_VENDOR_ID                  	(88U)
-
-/* Module Id */
-#define STD_TYPES_MODULE_ID                  	(197U)
+#define STDTYPES_VENDOR_ID                  (88U)
 
 /* Module Version 1.0.0 */
-#define STD_TYPES_SW_MAJOR_VERSION			 	(1U)
-#define STD_TYPES_SW_MINOR_VERSION           	(0U)
-#define STD_TYPES_SW_PATCH_VERSION           	(0U)
+#define STD_TYPES_SW_MAJOR_VERSION			(1U)
+#define STD_TYPES_SW_MINOR_VERSION           (0U)
+#define STD_TYPES_SW_PATCH_VERSION           (0U)
 
 
 /* AUTOSAR Version 4.3.1 */
-#define STD_TYPES_AR_RELEASE_MAJOR_VERSION		(4U)
-#define STD_TYPES_AR_RELEASE_MINOR_VERSION   	(3U)
-#define STD_TYPES_AR_RELEASE_REVISION_VERSION   (1U)
+#define STD_TYPES_AR_MAJOR_VERSION	(4U)
+#define STD_TYPES_AR_MINOR_VERSION   (3U)
+#define STD_TYPES_AR_PATCH_VERSION   (1U)
 
 /* Standard API return type which is shared between the RTE and the BSW modules */
 typedef uint8 Std_ReturnType;

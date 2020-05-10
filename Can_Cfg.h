@@ -4,23 +4,14 @@
 
 /* Published information */
 #define CAN_CFG_MODULE_ID (80U)
-#define CAN_CFG_VENDOR_ID (88U)   
 
-#define CAN_CFG_AR_RELEASE_MAJOR_VERSION    (4U)
-#define CAN_CFG_AR_RELEASE_MINOR_VERSION    (3U)
-#define CAN_CFG_AR_RELEASE_REVISION_VERSION (1U)
+#define CAN_CFG_AR_MAJOR_VERSION    (4U)
+#define CAN_CFG_AR_MINOR_VERSION    (3U)
+#define CAN_CFG_AR_REVISION_VERSION (1U)
 
-#define CAN_CFG_SW_MAJOR_VERSION (1U)
-#define CAN_CFG_SW_MINOR_VERSION (0U)
-#define CAN_CFG_SW_PATCH_VERSION (0U)
-
-/* AUTOSAR checking between Std Types and Can_Cfg Module */
-#if(CAN_CFG_AR_RELEASE_MAJOR_VERSION != STD_TYPES_AR_RELEASE_MAJOR_VERSION)\
-	||(CAN_CFG_RELEASE_MINOR_VERSION != STD_TYPES_AR_RELEASE_MINOR_VERSION)\
-	||(CAN_CFG_RELEASE_REVISION_VERSION != STD_TYPES_AR_RELEASE_REVISION_VERSION)
-#error "The AR version of Std_Types.h does not match the expected version"
-#endif
-
+#define CAN_CFG_SW_MAJOR_VERSION	(1U)
+#define CAN_CFG_SW_MINOR_VERSION 	(0U)
+#define CAN_CFG_SW_PATCH_VERSION 	(0U)
 
 #define EXTENDED   ( (Can_IdType) 0x00U)
 #define MIXED      ( (Can_IdType) 0x01U)
@@ -37,7 +28,7 @@
 #define CAN_2_ID            (uint8)(0x02U)
 
 /* Container "CanGeneral */
-#define CAN_DEV_ERROR_DETECT                  (STD_ON)    /* Switches the development error detection and notification on or off */
+#define CAN_DEV_ERROR_DETECT                  (STD_OFF)    /* Switches the development error detection and notification on or off */
 #define CAN_INDEX                             ( (uint8) 0x00U) /* Specifies the InstanceId of this module instance. If only one instance is present it shall have the Id 0*/
 #define CAN_LPDU_RECEIVE_CALLOUT_FUNCTION     ( /* Callout function name that will be called after a successfull reception. This parameter can be omitted */
 #define CAN_MAIN_FUNCTION_BUSOFF_PERIOD       ( (float32) (/*busOff period */) )  /*This parameter describes the period for cyclic call to Can_MainFunction_Busoff. Unit is seconds*/
@@ -63,16 +54,12 @@
 #define CAN_WAKEUP_PROCESSING                 (INTERRUPT) /*Enables / disables API Can_MainFunction_Wakeup() for handling wakeup events in polling mode*/
 /* End of container "CanController" */
 
-/* Container CanHardwareObject */
-typedef uint16 Can_ObjectId;
 #define HRH0_0 ( (Can_ObjectId) (0x00U))      /* Symbolic Names generated for this parameters */
-#define HRH1_0 ( (Can_ObjectId) (0x01U))
-#define HRH2_0 ( (Can_ObjectId) (0x02U))
 #define HTH0_0 ( (Can_ObjectId) (0x00U))
-#define HTH1_0 ( (Can_ObjectId) (0x01U))
-#define HTH2_0 ( (Can_ObjectId) (0x02U))
-
 /* End of container "CanHardwareObject" */
 
+/*some definition*/
+#define Num_OF_Controllers 1
+#define Num_HWObject       1
 
 #endif      /* CAN_CFG_H */ 

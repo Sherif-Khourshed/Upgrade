@@ -1,7 +1,7 @@
 /*
  * Can_GeneralTypes.h
  *
- *  Created on: Mar 1, 2020
+ *  Created on: Mar 7, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -21,9 +21,9 @@
 
 
 /* AUTOSAR Version 4.3.1 */
-#define CAN_GENERALTYPES_AR_RELEASE_MAJOR_VERSION		(4U)
-#define CAN_GENERALTYPES_AR_RELEASE_MINOR_VERSION   	(3U)
-#define CAN_GENERALTYPES_AR_RELEASE_REVISION_VERSION   	(1U)
+#define CAN_GENERALTYPES_AR_MAJOR_VERSION		(4U)
+#define CAN_GENERALTYPES_AR_MINOR_VERSION   	(3U)
+#define CAN_GENERALTYPES_AR_PATCH_VERSION   	(1U)
 
 #include "Std_Types.h"
 /* AUTOSAR Version checking between Std Types and CanGeneralTypes */
@@ -32,6 +32,9 @@
 	||(CAN_GENERALTYPES_AR_RELEASE_REVISION_VERSION != STD_TYPES_AR_RELEASE_REVISION_VERSION)
 #error "The AR version of Std_Types.h does not match the expected version"
 #endif
+
+/* Container CanHardwareObject */
+typedef uint16 Can_ObjectId;
 
 /*
 Standard32Bit--0..0x400007FF
@@ -125,4 +128,79 @@ typedef enum
 	CANTRCV_WU_BY_PIN = 0x06,		 /* The transceiver has detected a wake-up event at one of the transceiver's pins */
 	CANTRCV_WU_BY_SYSERR = 0x07,	 /* The transceiver has detected, that the wake up of the ECU was caused by a HW related device failure*/
 }CanTrcv_TrcvWakeupReasonType;
+
+typedef struct
+{
+    /*Specifies the baudrate of the controller in kbps*/
+    uint16 CanControllerBaudRate;
+    /*Uniquely identifies a specific baud rate configuration. This ID is used by SetBaudrate API.*/
+    uint16 CanControllerBaudRateConfigID;
+    /*Specifies propagation delay in time quantas.*/
+    uint8 CanControllerPropSeg;
+    /*Specifies phase segment 1 in time quantas.*/
+     uint8 CanControllerSeg1;
+     /*Specifies phase segment 2 in time quantas.*/
+     uint8 CanControllerSeg2;
+     /*Specifies the synchronization jump width for the controller in time quantas*/
+     uint8 CanControllerSyncJumpWidth;
+}CanControllerBaudrateConfig;
+
+typedef struct
+{
+    /* Defines if a CAN controller is used in the configuration */
+    boolean CanControllerActivation;
+    /*Specifies the CAN controller base address*/
+    uint32 CanControllerBaseAddress;
+    /*This parameter provides the controller ID which is unique in a given CAN Driver.
+     The value for this parameter starts with 0 and continue without any gaps*/
+    uint8 CanControllerId;
+    /*Reference to baudrate configuration container configured for the Can Controller. Reference to [ CanControllerBaudrateConfig ]*/
+    CanControllerBaudrateConfig* CanControllerDefaultBaudrate;
+
+	/*Reference to the clock source from MCU Driver is missing, Will be added when finishing MCU driver */
+}CanController;
+
+/* Container "CanHardwareObject" */
+
+/*  This configuration element is used as information for the CAN Interface only. The relevant CAN driver configuration is done with the filter mask and identifier*/
+typedef enum {BASIC,FULL}Can_HandleType;
+
+typedef enum {RECEIVE,TRANSMIT}Can_ObjectType;
+
+/* Container "CanHWFilter" */
+typedef struct
+{
+    /*Specifies (together with the filter mask) the identifiers range that passes the hardware filter.*/
+    uint32 CanHwFilterCode;
+
+    /*Describes a mask for hardware-based filtering of CAN identifiers. The CAN identifiers of incoming
+     messages are masked with the appropriate CanFilterMaskValue. Bits holding a 0 mean don't care,
+     i.e. do not compare the message's identifier in the respective bit position.The mask shall be
+     build by filling with leading 0. In case of CanIdType EXTENDED or MIXED a 29 bit mask shall
+     be build. In case of CanIdType STANDARD a 11 bit mask shall be build*/
+    uint32 CanHwFilterMask;
+
+} CanHwFilter;
+/* End of Container "CanHWFilter" */
+
+typedef struct
+{
+	Can_HandleType CanHandleType; /* Specifies the type (Full-CAN or Basic-CAN) of a hardware object */
+	boolean CanHardwareObjectUsesPolling; /* Enables polling of this hardware object */
+	uint16 CanHWObjectCount; /* Number of hardware objects used to implement one HOH. In case of a HRH this parameter defines the number of elements in the hardware FIFO or the number of shadow buffers, in case of a HTH it defines the number of hardware objects used for multiplexed transmission or for a hardware FIFO used by a FullCAN HTH */
+	Can_IdType CanIdType; /* Standard, extended or mixed mode */
+	Can_ObjectId CanObjectId;
+	Can_ObjectType CanObjectType;
+	boolean CanTriggerTransmitEnable; /* This parameter defines if or if not Can supports the trigger-transmit API for this handle */
+	CanController* CanControllerRef;
+	CanHwFilter* CanHWFilterRef;
+}CanHardwareObject;
+/* End of container "CanHardwareObject" */
+
+typedef struct
+{
+    CanController* CanController_ptr;
+    CanHardwareObject* CanHardwareObject_ptr;
+}Can_ConfigType;
+
 #endif /* CAN_GENERALTYPES_H_ */
