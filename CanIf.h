@@ -51,6 +51,12 @@
   #error "The SW version of CanIf_Types.h does not match the expected version"
 #endif
 
+/* To extern configurations ptr CanIf_Config */
+#include "CanIf_PBcfg.h"
+
+/**********************************************************************************/
+/**********************************************************************************/
+
 /********************************* Error Codes ************************************/
 
 /**********************

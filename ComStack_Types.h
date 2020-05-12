@@ -28,6 +28,16 @@
   #error "The AR version of Std_Types.h does not match the expected version"
 #endif
 
+/* Standard platform types */
+#include "Platform_Types.h"
+
+/* AUTOSAR checking between Std Types and Com Stack Types Modules */
+#if ((COMSTACK_TYPES_AR_MAJOR_VERSION != PLATFORM_AR_RELEASE_MAJOR_VERSION)\
+ ||  (COMSTACK_TYPES_AR_MINOR_VERSION != PLATFORM_AR_RELEASE_MINOR_VERSION)\
+ ||  (COMSTACK_TYPES_AR_PATCH_VERSION != PLATFORM_AR_RELEASE_PATCH_VERSION))
+  #error "The AR version of Std_Types.h does not match the expected version"
+#endif
+
 /* Configuration of Communication Stack */
 #include "ComStack_Cfg.h"
 

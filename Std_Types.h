@@ -55,4 +55,8 @@ typedef unsigned char StatusType;				 /* OSEK compliance */
 #define STD_ON 		 0x01U 						 /* Standard ON */
 #define STD_OFF 	 0x00U						 /* Standard OFF */
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
 #endif /* STD_TYPES_H_ */

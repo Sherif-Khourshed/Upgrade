@@ -323,6 +323,16 @@ typedef struct
 } CanIfHrhRangeCfg;
 
 /*
+ * CanIfControllerConfig container
+ */
+/** Not supported. */
+typedef enum {
+	CANIF_WAKEUP_SUPPORT_CONTROLLER,
+	CANIF_WAKEUP_SUPPORT_NO_WAKEUP,
+	CANIF_WAKEUP_SUPPORT_TRANSCEIVER
+} CanIf_WakeupSupportTypeType;
+
+/*
  * This container contains the configuration (parameters) of an addressed
  * CAN controller by an underlying CAN Driver module. This container is
  * configurable per CAN controller.
@@ -335,7 +345,7 @@ typedef struct
 	 * be assigned to one specific ControllerId of the CanIf. Range:
 	 * 0..number of configured controllers of all CAN Driver modules.
 	 */
-	uint8 CanIfCtrlId;
+	CanIf_Arc_ChannelIdType CanIfCtrlId;
 
 	/*
 	 * This parameter defines if a respective controller of the referenced CAN
@@ -497,6 +507,13 @@ typedef struct
 	uint32 CanIfTxPduCanId;
 
 	/*
+	 * Data length code (in bytes) of transmit CAN L-PDUs used by the CAN
+	 * Driver for CAN L-PDU transmission. The data area size of a CAN L-Pdu
+	 * can have a range from 0 to 8 bytes.
+	 */
+	uint8 CanIfCanTxPduIdDlc;
+
+	/*
 	 * Identifier mask which denotes relevant bits in the CAN Identifier. This
 	 * parameter may be used to keep parts of the CAN Identifier of dynamic
 	 * transmit L-PDUs static. Range: 11 bits for Standard CAN Identifier, 29
@@ -585,7 +602,17 @@ typedef struct
 	void (*CanIfTxPduUserTxConfirmation)(PduIdType);
 
 	/* Configurable reference to a CanIf buffer configuration. */
-	CanIfBufferCfg* CanIfTxPduBufferRef;
+	//CanIfBufferCfg* CanIfTxPduBufferRef;
+
+	/*
+	 * Reference to HTH, that defines the hardware object or the pool of
+	 * hardware objects configured for transmission. All the CanIf Tx L-PDUs
+	 * refer via the CanIfBufferCfg and this parameter to the HTHs if
+	 * TxBuffering is enabled, or not.
+	 *
+	 * Each HTH shall not be assigned to more than one buffer.
+	 */
+	CanIfHthCfg* CanIfBufferHthRef;
 } CanIfTxPduCfg;
 
 /*
@@ -882,7 +909,7 @@ typedef struct
 typedef struct
 {
 	/* Reference to the Init Hoh Configuration */
-	CanIfInitHohCfg* CanIfCtrlDrvInitHohConfigRef;
+	//CanIfInitHohCfg* CanIfCtrlDrvInitHohConfigRef;
 
 	/*
 	 * CAN Interface Driver Reference.
@@ -892,7 +919,7 @@ typedef struct
 	 * The CAN Driver name can be derived from the ShortName of the CAN
 	 * driver module.
 	 */
-	uint8 CanIfCtrlDrvNameRef[32];
+	//uint8 CanIfCtrlDrvNameRef[32];
 
 	/*
 	* This container contains the configuration (parameters)
@@ -921,6 +948,13 @@ typedef struct
 	 * Range: 11 Bit For Standard CAN Identifier ... 29 Bit For Extended CAN identifier
 	 */
 	uint32 CanIfRxPduCanId;
+
+	/*
+	 * Data Length code of received CAN L-PDUs used by the CAN Interface.
+	 * Exa: DLC check. The data area size of a CAN L-PDU can have a range
+	 * from 0 to 8 bytes.  	uint8 		CanIfCanRxPduDlc;
+	 */
+	uint8 CanIfCanRxPduDlc;
 
 	/*
 	 * Identifier mask which denotes relevant bits in the CAN Identifier. This
@@ -1134,18 +1168,18 @@ typedef struct
 	 * This container contains the private configuration
 	 * (parameters) of the CAN Interface.
 	 */
-	const CanIfPrivateCfg* PrivateCfg;
+	CanIfPrivateCfg* PrivateCfg;
 
 	/*
 	 * This container contains the public configuration
 	 * (parameters) of the CAN Interface.
 	 */
-	const CanIfPublicCfg* PublicCfg;
+	CanIfPublicCfg* PublicCfg;
 
 	/* This container contains the init parameters of
 	 * the CAN Interface.
 	 */
-	const CanIfInitCfg* InitCfg;
+	CanIfInitCfg* InitCfg;
 
 	/*
 	 * Callback functions provided by upper layer modules of
@@ -1153,7 +1187,7 @@ typedef struct
 	 * container are common to all configured CAN Driver /
 	 * CAN Transceiver Driver modules.
 	 */
-	const CanIfDispatchCfg* DispatchCfg;
+	CanIfDispatchCfg* DispatchCfg;
 
 	/*
 	 * Configuration parameters for all the underlying CAN
@@ -1161,7 +1195,15 @@ typedef struct
 	 * For each CAN Driver module a separate instance of
 	 * this container has to be provided.
 	 */
-	const CanIfCtrlDrvCfg* CtrlDrvCfg;
+	//CanIfCtrlDrvCfg* CtrlDrvCfg;
+
+	/*
+	 * This container contains the configuration (parameters)
+	 * of an addressed CAN controller by an underlying CAN
+	 * Driver module. This container is configurable per CAN controller.
+	 */
+	//CanIfCtrlCfg CtrlCfg[CAN_CONTROLLER_CNT];
+	CanIfCtrlCfg* CtrlCfg;
 
 	/*
 	 * This container contains the configuration (parameters)
@@ -1170,13 +1212,13 @@ typedef struct
 	 * transceiver Driver a separate instance of this container
 	 * shall be provided.
 	 */
-	const CanIfTrcvDrvCfg* TrcvDrvCfg;
+	CanIfTrcvDrvCfg* TrcvDrvCfg;
 
 	/* ArcCore: Contains the mapping from CanIf-specific Channels to Can Controllers */
-	const CanControllerIdType *Arc_ChannelToControllerMap;
+	const CanControllerIdType* Arc_ChannelToControllerMap;
 
 	/* Index of channel */
-	const uint8	*Arc_ChannelDefaultConfIndex;
+	const uint8* Arc_ChannelDefaultConfIndex;
 } CanIf_ConfigType;
 
 #endif

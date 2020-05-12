@@ -22,26 +22,32 @@
 /* This is the ConfigurationIndex in CanIf_InitController() */
 typedef enum {
 	CANIF_CHL_0_CONFIG,					/* Configuration of CH0 */
+	CANIF_CHL_1_CONFIG,					/* Configuration of CH1 */
     CANIF_CHANNEL_CONFIGURATION_CNT		/* Number of configured channels */
 }CanIf_Arc_ConfigurationIndexType;
 
 typedef enum {
 	CANIF_CHL_0,						/* CAN_CTRL_0 */
+	CANIF_CHL_1,						/* CAN_CTRL_1 */
     CANIF_CHANNEL_CNT					/* Number of channels */
 }CanIf_Arc_ChannelIdType;
 
+/* TODO: remove it after adding can_pbcfg.c or can_pbcfg.h */
 typedef enum {
 	CAN_CTRL_0 = 0,						/* Can controller 0 */
+	CAN_CTRL_1,							/* Can controller 1 */
 	CAN_CONTROLLER_CNT					/* Number of Can controllers */
 }CanControllerIdType;
 
 typedef enum {
 	CAN_CTRL_0_HTH,						/* Can controller 0 HTH */
+	CAN_CTRL_1_HTH,						/* Can controller 1 HTH */
 	CAN_HTH_CNT							/* Number of HTHs */
 } Can_Arc_HTHType;
 
 typedef enum {
-	RxHWObject,							/* Can controller 0 HRH */
+	CAN_CTRL_0_HRH,						/* Can controller 0 HRH */
+	CAN_CTRL_1_HRH,						/* Can controller 1 HRH */
 	CAN_HRH_CNT							/* Number of HRHs */
 } Can_Arc_HRHType;
 
