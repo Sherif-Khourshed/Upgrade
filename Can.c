@@ -1,317 +1,219 @@
-/* On L-PDU transmission, the Can module writes the L-PDU in an appropriate buffer inside the CAN controller hardware */
-/* On L-PDU reception, the Can module calls the RX indication callback function with ID, Data Length and pointer to L-SDU as parameter */
-/* The Can module provides an interface that serves as periodical processing function, 
-and which must be called by the Basic Software Scheduler module periodically. 
-Furthermore, the Can module provides services to control the state of the CAN controllers. 
-Bus-off and Wake-up events are notified by means of callback functions. 
-The Can module is a Basic Software Module that accesses hardware resources */
-/* [SWS_Can_00033] The Can module shall implement the interrupt service routines for all CAN Hardware Unit interrupts that are needed */
-/* [SWS_Can_00419] The Can module shall disable all unused interrupts in the CAN controller */
-/* [SWS_Can_00420] The Can module shall reset the interrupt flag at the end of the ISR (if not done automatically by hardware) */
-/* The Can module has a very simple state machine, with the two states CAN_UNINIT and CAN_READY */
-/* [SWS_Can_00103] After power-up/reset, the Can module shall be in the state CAN_UNINIT */
-/* The ECU State Manager module shall call Can_Init at most once during runtime */
-/* Can controller states are :  UNINIT, STOPPED, STARTED and SLEEP */
-/* In case development errors are enabled and there is a not allowed transition requested by the upper layer, 
-the Can module shall rise the development error CAN_E_TRANSITION */
-/* The Can module does not check the actual state before it performs Can_Write or raises callbacks */
-/* CAN controller state UNINIT :
-The CAN controller is not initialized. All registers belonging to the CAN module are in reset state, 
-CAN interrupts are disabled. The CAN Controller is not participating on the CAN bus */
-/* CAN controller state STOPPED :
-In this state the CAN Controller is initialized but does not participate on the bus. In addition, 
-error frames and acknowledges must not be sent */
-/* CAN controller state STARTED 
-The controller is in a normal operation mode with complete functionality, which means it participates in the network. 
-For many controllers leaving the initialization-mode causes the controller to be started */
-/* [SWS_Can_00257] When the CAN hardware supports sleep mode and is triggered to transition into SLEEP state, 
-the Can module shall set the controller to the SLEEP state from which the hardware can be woken over CAN Bus */
-/* [SWS_Can_00258] When the CAN hardware does not support sleep mode and is triggered to transition into SLEEP state, 
-the Can module shall emulate a logical SLEEP state from which it returns only, when it is triggered by software to 
-transition into STOPPED state */
-/* [SWS_Can_00404] The CAN hardware shall remain in state STOPPED, while the logical SLEEP state is active */
-
 #include "Can.h"
 #include "Det.h"
-static Can_ModuleStateType CAN_MODULE_STATE = CAN_UNINIT;
-static Can_ControllerStateType CAN_CONTROLLERS_STATES[] = {CAN_CS_UNINIT,CAN_CS_UNINIT,CAN_CS_UNINIT}; 
-
-/* When the function Can_Init is entered and the Can module is not in state CAN_UNINIT or the CAN controllers 
-are not in state UNINIT, it shall raise the error CAN_E_TRANSITION */
-/* [SWS_Can_00056] Post-Build configuration elements that are marked as multiple (‘M’ or ‘x’) in chapter 10 can 
-be selected by passing the pointer ‘Config’ to the init function of the module */
-/* [SWS_Can_00250] The function Can_Init shall initialize: 
-static variables, including flags, Common setting for the complete CAN HW unit, CAN controller specific 
-settings for each CAN controller */
-/* [SWS_Can_00407] If the hardware allows for only one usage of the register, 
-the Can module implementing that functionality is responsible initializing the register. 
-If the register can affect several hardware modules and if it is an I/O register it shall be initialized by the PORT driver. 
-If the register can affect several hardware modules and if it is not an I/O register it shall be initialized by the MCU driver. 
-One-time writable registers that require initialization directly after reset shall be initialized by the startup code */
-
+#include "S32_core_cm4.h"
+static Can_ModuleStateType CAN_MODULE_STATE = CAN_UNINIT;    /* Very important variable used to hold the current state of the can driver */
+static Can_ControllerStateType CAN_CONTROLLERS_STATES[] = {CAN_CS_UNINIT,CAN_CS_UNINIT,CAN_CS_UNINIT};
+static uint32 CAN_BASE_ADDRESSES[] = {CAN_0_BASE_ADDRESS, CAN_1_BASE_ADDRESS, CAN_2_BASE_ADDRESS};
+static Can_ConfigType* TempConfig = NULL_PTR;   /* Temporary configuration pointer to store the configuration for Can_SetControllerMode(CAN_CS_STARTED) usage */
+static uint32 PCC_CAN_OFFSETS[3] = {0x90,0x94,0xAC};
+static uint8 TotalNumOfBuffers[NUM_OF_CONTROLLERS] = {NUM_OF_TX_BUFFERS_0 + NUM_OF_RX_BUFFERS_0, NUM_OF_TX_BUFFERS_1 + NUM_OF_RX_BUFFERS_1, NUM_OF_TX_BUFFERS_2 + NUM_OF_RX_BUFFERS_2};
+static uint8 TotalTxSysBuf = NUM_OF_TX_BUFFERS_0 + NUM_OF_TX_BUFFERS_1 + NUM_OF_TX_BUFFERS_2;
+static uint8 TotalRxSysBuf = NUM_OF_RX_BUFFERS_0 + NUM_OF_RX_BUFFERS_1 + NUM_OF_RX_BUFFERS_2;
+static uint8 MAXMB[] = {128, 64, 64};
+static uint8 NumOfIntDis[NUM_OF_CONTROLLERS] = {1,1,1};   /* Number of calls of the Can_DisableControllerInterrupts() Function for each controller (1 because the interrupts are initially disabled) */
+static uint8 BufferCounter = 0;   /* Counter to count inside the hardware object array */
+static uint8 TxBufferCounter = 0;
+static uint8 RxBufferCounter = 0;
+static uint8 RegCounter = 0;
+/* The following two types are implying that when the user wants to write any message on the can bus,
+   he will choose the buffer from the Tx array, These 2 arrays are filled from the initialization function
+   according to the PBcfg.h file.
+*/
+static CanHardwareObject Can_HTH_Array[TotalTxSysBuf];    /* Array that will hold the Tx buffers informations */
+static CanHardwareObject Can_HRH_Array[TotalRxSysBuf];    /* Array that will hold the Rx buffers informations */
 
 void Can_Init( const Can_ConfigType* Config )
 {
+	DISABLE_INTERRUPTS()      /* Macro in S32_core_cm4.h */
 	uint8 Can_ControllerIndex = 0;
-	/* [SWS_Can_00174] If development error detection for the Can module is enabled: 
+	uint8 BufferConfigCounter = 0;
+	uint8 RAMCounter = 0;
+	/* [SWS_Can_00174] If development error detection for the Can module is enabled:
 	The function Can_Init shall raise the error CAN_E_TRANSITION if the driver is not in state CAN_UNINIT */
-	/* [SWS_Can_00408] If development error detection for the Can module is enabled: 
+	/* [SWS_Can_00408] If development error detection for the Can module is enabled:
 	The function Can_Init shall raise the error CAN_E_TRANSITION if the CAN controllers are not in state UNINIT */
 	#if (CAN_DEV_ERROR_DETECT == STD_ON)
-		if ( (CAN_UNINIT != CAN_MODULE_STATE) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[0]) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[1]) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[2]) )
+		if (NULL_PTR == Config)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x00U, CAN_E_PARAM_POINTER);
+		}
+		else if ( (CAN_UNINIT != CAN_MODULE_STATE) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[0]) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[1]) || (CAN_CS_UNINIT != CAN_CONTROLLERS_STATES[2]) )
 		{
 			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x00U, CAN_E_TRANSITION);
 		}
 		else
 		{
-			/* MISRA */ 
+			/* MISRA */
 		}
 	#endif
-	
+	*TempConfig = *Config;     /* Storing the configurations for future usage */
 	/* [SWS_Can_00259] The function Can_Init shall set all CAN controllers in the state STOPPED */
 	/* It will call the function Can_SetControllerMode(CAN_CS_STOPPED) which is not implemented yet */
 	for (Can_ControllerIndex = 0 ; Can_ControllerIndex < NUM_OF_CONTROLLERS ; Can_ControllerIndex++)
 	{
-		/* Set all the controllers in the freeze mode for initialization */
-		Can_SetControllerMode(Can_ControllerIndex, CAN_CS_STOPPED); 
-		/* The next line shall be implemented in the function Can_SetControllerMode */
-		// CAN_CONTROLLERS_STATES[Can_ControllerIndex] = CAN_CS_STOPPED;
-	}
-	
-	/* [SWS_Can_00245] The function Can_Init shall initialize all CAN controllers according to their configuration. 
-	Each CAN controller must then be started separately by calling the function Can_SetControllerMode(CAN_CS_STARTED) */
-	/* From The S32_RM :
-	For any configuration change/initialization it is required that FlexCAN be put into Freeze mode */ 
-	/* We will design the module that the STOPPED Mode of operation is the freeze mode, so the previous call 
-	of Can_SetControllerMode(CAN_CS_STOPPED) will put all Can Controllers in the freeze mode of operation */
-	
-	/* Initializing the FlexCan0 registers according to the configuration pointer */
-	/* 31) MDIS (Module Disable / Enable) = 0b To Enable
-	30) FRZ (Freeze mode Enable / Disable) = 1b To Enable (Already enabled from the Call of Can_SetControllerMode)
-	29) RFEN (Rx FIFO Enable) = 1b To Enable. This cannot be enabled while in CANFD mode. (Need Discussion)
-	28) HALT (Halt FlexCan) = 1b To enter the freeze mode if FRZ is asserted (Already 1b)
-	27) NOTRDY: Read-Only. 
-	26) Reserved: Write the reset value.
-	25) SoftReset: 1b reset the regs.
-	24) FRZACK (Freeze acknowledgment)(read-only) : 1b: the controller is in the freeze mode
-	23) SUPV (Supervisor Mode) : 1b (Supervisor mode)   (Need Discussion)
-	22) Reserved.
-	21) WRNEN (Warning Interrupt Enable): When asserted, this bit enables the generation of the TWRNINT and RWRNINT flags in the Error and Status Register 1 (ESR1).
-	20) LPMACK (Low-Power mode acknowledgment)(Read-Only): 1b - FlexCAN is in a low-power mode.
-	19) Reserved.
-	18) Reserved.
-	17) SRXDIS (Self Reception Disable): 0b - Self-reception enabled.   
-	16) IRMQ (Individual Rx Masking And Queue Enable) : This bit indicates whether Rx matching process will be based either on individual masking and queue or on masking scheme with RXMGMASK, RX14MASK, RX15MASK, and RXFGMASK     (Need Discussion)
-	15) DMA (DMA for Rx FIFO Enable): 1b (Enabled).      
-	14) PNET_EN (Pretended Networking Enable) : 1b (Enabled).
-	13) LPRIOEN (Local priority enable) : 0b (Disabled).
-	12) AEN (Abort Enable) : 0b (Disabled).
-	11) FDEN (CAN FD operation enable) : 0b (Disabled).
-	10) Reserved
-	9-8) IDAM: ID Acceptance Mode: This 2-bit field identifies the format of the Rx FIFO ID filter table elements   (Need Discussion)
-		00b - Format A: One full ID (standard and extended) per ID filter table element. 
-		01b - Format B: Two full standard IDs or two partial 14-bit (standard and extended) IDs per ID filter table element. 
-		10b - Format C: Four partial 8-bit standard IDs per ID filter table element. 
-		11b - Format D: All frames rejected.
-	7) Reserved
-	6-0) MAXMB (Number Of The Last Message Buffer) (Reset Value) = 0x0f	      (Need Discussion)
-	
-	/* CTRL1 Register */ 
-	/* 31-24) PRESDIV (Prescaler Division Factor): This 8-bit field defines the ratio between the PE clock frequency 
-	and the serial clock (Sclock) frequency. The Sclock period defines the time quantum of the CAN protocol. 
-	For the reset value, the Sclock frequency is equal to the PE clock frequency. The maximum value of this 
-	field is 0xFF, which gives a minimum Sclock frequency equal to the PE clock frequency divided by 256. 
-	This field can be written only in Freeze mode because it is blocked by hardware in other modes. 
-	Sclock frequency = PE clock frequency / (PRESDIV + 1).
-	
-	23-22) RJW (Resync Jump Width): This 2-bit field defines the maximum number of time quanta that a bit time can be 
-	changed by one resynchronization. One time quantum is equal to the Sclock period.
-	Resync Jump Width = RJW + 1.
-	
-	21-19) PSEG1: Phase Segment 1: This 3-bit field defines the length of phase segment 1 in the bit time. 
-	The valid programmable values are 0–7. This field can be written only in Freeze mode because it is 
-	blocked by hardware in other modes. 
-	Phase Buffer Segment 1 = (PSEG1 + 1) × Time-Quanta
-	
-	18-16) PSEG2: Phase Segment 2: This 3-bit field defines the length of phase segment 2 in the bit time. 
-	The valid programmable values are 1–7. This field can be written only in Freeze mode because it is blocked 
-	by hardware in other modes. 
-	Phase Buffer Segment 2 = (PSEG2 + 1) × Time-Quanta
-	
-	15) BOFFMSK: Bus-off interrupt mask: This bit provides a mask for the Bus Off interrupt ESR1[BOFFINT]. 
-	0b - Bus Off interrupt disabled. 
-	1b - Bus Off interrupt enabled.
+		if (TRUE == (Config -> (CanController_ptr[Can_ControllerIndex].CanControllerActivation)) )
+		{
+			/* We must enable the clock for the CAN controller through the PCC module */
+			/* This must be done by the MCU driver */
+			/* Until implementing the MCU driver, the Clock will be enabled manually */
+			HW_Register(PCC_BASE_ADDRESS + PCC_CAN_OFFSETS[Can_ControllerIndex]) |= (1 << 30);
 
-	14) ERRMSK: Error Interrupt Mask: This bit provides a mask for the Error interrupt ESR1[ERRINT]. 
-	0b - Error interrupt disabled. 
-	1b - Error interrupt enabled.
-	
-	13) CLKSRC: CAN Engine Clock Source: This bit selects the clock source to the CAN Protocol Engine (PE) to be 
-	either the peripheral clock or the oscillator clock. The selected clock is the one fed to the prescaler to 
-	generate the serial clock (Sclock). In order to guarantee reliable operation, this bit can be written only 
-	in Disable mode.
-	
-	12) LPB: Loop Back Mode (Disabled) (0b)
-	
-	11) TWRNMSK: Tx Warning Interrupt Mask: This bit provides a mask for the Tx Warning interrupt associated with 
-	the TWRNINT flag in the Error and Status Register 1 (ESR1). This bit is read as zero when MCR[WRNEN] is negated. 
-	This bit can be written only if MCR[WRNEN] is asserted. 
-	0b - Tx Warning interrupt disabled. 
-	1b - Tx Warning interrupt enabled.
+			/* Set the controller in the freeze mode for initialization */
+			Can_SetControllerMode(Can_ControllerIndex, CAN_CS_STOPPED);
+			/* The next line shall be implemented in the function Can_SetControllerMode */
+			// CAN_CONTROLLERS_STATES[Can_ControllerIndex] = CAN_CS_STOPPED;
 
-	10) RWRNMSK: Rx Warning Interrupt Mask This bit provides a mask for the Rx Warning interrupt associated with 
-	the RWRNINT flag in the Error and Status Register 1 (ESR1). This bit is read as zero when MCR[WRNEN] bit is negated. 
-	This bit can be written only if MCR[WRNEN] bit is asserted. 
-	0b - Rx Warning interrupt disabled. 
-	1b - Rx Warning interrupt enabled.
-	
-	9-8) Reserved
-	
-	7) SMP: CAN Bit Sampling: This bit defines the sampling mode of CAN bits at the Rx input. It can be written in 
-	Freeze mode only, because it is blocked by hardware in other modes
-	0b - Just one sample is used to determine the bit value. 
-	1b - Three samples are used to determine the value of the received bit: the regular one (sample point) and two preceding samples; a majority rule is used.
-	
-	6) BOFFREC: Bus Off Recovery: 
-	0b - Automatic recovering from Bus Off state enabled. 
-	1b - Automatic recovering from Bus Off state disabled.
-	[SRS_Can_01060] The CAN driver shall not recover from bus-off automatically.
-	
-	5) TSYN: Timer Sync: This bit enables a mechanism that resets the free running timer each time a message is 
-	received in message buffer 0.
-	0b - Timer sync feature disabled 
-	1b - Timer sync feature enabled
+			RAMn = (Config -> (CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress + FIRSTOFFSET);       /* First element in the array is the first message buffer */
+			RXIMRn = (Config -> (CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress + MASKOFFSET);
+			/* MCR Initialization */
+			HW_Register((Config -> (CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress + MCR)) &= ~(1 << MDIS);  /* Enable the Can Controller */
+			HW_Register((Config -> (CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress + MCR)) |= ( (1 << AEN) | (1 << IRMQ) );   /* Enable Abort enable feature */
 
-	4) LBUF: Lowest Buffer Transmitted First: 
-	0b - Buffer with highest priority is transmitted first. 
-	1b - Lowest number buffer is transmitted first.
+			/* CTRL1 Initialization */
+			#if (CAN_SET_BAUDRATE_API == STD_OFF)
+			HW_Register((Config->CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress)+CTRL1) |= ((Config->CanController_ptr[Can_ControllerIndex].CanControllerDefaultBaudrate[0].CanControllerPropSeg)<<PROPSEG) | ((Config->CanController_ptr[Can_ControllerIndex].CanControllerDefaultBaudrate[0].CanControllerSeg1)<<PSEG1) | ((Config->CanController_ptr[Can_ControllerIndex].CanControllerDefaultBaudrate[0].CanControllerSeg2)<<PSEG2) | ((Config->CanController_ptr[Can_ControllerIndex].CanControllerDefaultBaudrate[0].CanControllerSyncJumpWidth)<<RJW) | (1 << ERRMSK) | (1 << BOFFREC) ;
+			#endif
 
-	3) LOM: Listen Only mode: 0b (Disabled).
-	
-	2-0) PROPSEG: Propagation Segment This 3-bit field defines the length of the propagation segment in the bit time. 
-	The valid programmable values are 0–7. This field can be written only in Freeze mode because it is blocked by 
-	hardware in other modes. 
-	Propagation segment time = (PROPSEG + 1) × time-quanta. Time-quantum = one Sclock period.
+			/* Message Buffers Initialization :
+			a. The control and status word of all message buffers must be initialized.
+			b. If Rx FIFO was enabled, the ID filter table must be initialized.
+			c. Other entries in each message buffer should be initialized as required
+			*/
+			for (RAMCounter = 0; RAMCounter < MAXMB[Can_ControllerIndex]; ++RAMCounter)  /* FlexCAN0 32 MB, FlexCAN1,2 = 16 MB */
+			{
+				RAMn[RAMCounter] = 0;    /* Clearing all message buffers */
+			}
 
-	CTRL1 Initialization 
-	Prescaler = reset value (0x00) (The PE clock = Sclock). 
-	RJW = From configuration pointer. 
-	PSEG1, PSEG2 from configuration pointer.
-	15, 16 (High) Enable Bus-off, Error Interrupts.
-	13 0b (reset Value) (oscillator clock).
-	12 (0b).
-	11, 10 (High) (Enable Tx, Rx Warning Interrupts).
-	9-8 (0b) (Reset value).
-	7 (0b) One Sample determines the bit value.
-	6 (1b) Automatic Bus-off Recovery disabled. 
-	5 (0b) disabled.
-	4 (0b) Buffer with highest priority is transmitted first.
-	3 (0b). 
-	2-0 = From configuration pointer.		
-	*/
+			/* The FlexCan0 MAXMB bits (located in MCR register) were initialized as the reset value = 16 buffers */
+			/* But we will be using 2 buffers for each module */
+			/* The user can configure it through NUM_OF_TX_BUFFERS, NUM_OF_RX_BUFFERS located in Can.h */
+			/* The number configured by the user must be consistent with the Can_PBcfg.c file */   /*Very Important*/
+			/* The user must define the hardware objects in order of 0, 1, 2 */
+			for (BufferConfigCounter = 0 ; BufferConfigCounter < (TotalNumOfBuffers[Can_ControllerIndex]) ; BufferConfigCounter+=4)
+			{
+				if (STANDARD == Config->CanHardwareObject_ptr[(BufferCounter) ].CanIdType)
+				{
+					/* Writing to MB IDE bit (21) */
+					RAMn[BufferConfigCounter] |= (1 << 21);
 
-	/* Checking whether the controller is used in the configuration or not */
-	if (TRUE == (Config -> (CanController_ptr[CAN_0_ID].CanControllerActivation)) ) 
-	{
-		/* MCR Initialization */ 
-		HW_Register((Config -> (CanController_ptr[CAN_0_ID].CanControllerBaseAddress + MCR)) &= ~(1 << MDIS);  /* Enable the Can Controller */
-		HW_Register((Config -> (CanController_ptr[CAN_0_ID].CanControllerBaseAddress + MCR)) |= ( (1 << RFEN) | (1 << AEN) );   /* Enable Rx FIFO */
-		
-		/* CTRL1 Initialization */
-        HW_Register((Config->CanController_ptr[index1].CanControllerBaseAddress)+CTRL1) |= ((Config->CanController_ptr[index1].CanControllerDefaultBaudrate->CanControllerPropSeg)<<PROPSEG) | ((Config->CanController_ptr[index1].CanControllerDefaultBaudrate->CanControllerSeg1)<<PSEG1) | ((Config->CanController_ptr[index1].CanControllerDefaultBaudrate->CanControllerSeg2)<<PSEG2) | ((Config->CanController_ptr[index1].CanControllerDefaultBaudrate->CanControllerSyncJumpWidth)<<RJW) | (1 << ERRMSK) | (1 << BOFFREC) ;
-		#if (CAN_BUSOFF_PROCESSING == INTERRUPT) 
-			HW_Register((Config->CanController_ptr[index1].CanControllerBaseAddress)+CTRL1) |= (1 << BOFFMSK);
-		#endif /*CAN_BUSOFF_PROCESSING*/
-		#if (CAN_RX_PROCESSING == INTERRUPT) 
-			HW_Register((Config->CanController_ptr[index1].CanControllerBaseAddress)+CTRL1) |= (1 << RWRNMSK);
-		#endif /*CAN_RX_PROCESSING*/
-		#if (CAN_TX_PROCESSING == INTERRUPT) 
-			HW_Register((Config->CanController_ptr[index1].CanControllerBaseAddress)+CTRL1) |= (1 << TWRNMSK);
-		#endif /*CAN_TX_PROCESSING*/
-		
-		
+					if (TRANSMIT == Config->CanHardwareObject_ptr[BufferCounter].CanObjectType)
+					{
+						/* Fill the Tx buffers array */
+						Can_HTH_Array[TxBufferCounter++] = CanHardwareObject_arr[BufferCounter];
 
-	}
-	else 
-	{
-		/* Disable the Controller */ 
-		HW_Register((Config -> (CanController_ptr[CAN_0_ID].CanControllerBaseAddress + MCR)) |= (1 << MDIS);
+						/* Writing the MB code as TX INACTIVE */
+						/* It is important to write the buffer as inactive as that will help checking if the buffer busy or not */
+						RAMn[BufferConfigCounter] |= (8 << 24);	/* Code = 0b1000 in bits (24 - 27) */
+
+					}
+					else
+					{
+						/* Fill the Rx buffers array */
+						Can_HRH_Array[RxBufferCounter++] = CanHardwareObject_arr[BufferCounter];
+						/* Writing the MB code as RX EMPTY */
+						RAMn[BufferConfigCounter] |= (4 << 24);	/* Code = 0b0100 in bits (24 - 27) */
+
+						/* Writing the corresponding MASK */
+						RXIMRn[RegCounter] = Config->CanHardwareObject_ptr[BufferCounter].CanHWFilterRef->CanHwFilterMask;
+					}
+				}
+
+				else /* The ID is extended */
+				{
+					/* Writing to MB IDE bit (21) */
+					RAMn[BufferConfigCounter] &= ~(1 << 21);
+
+					if (TRANSMIT == Config->CanHardwareObject_ptr[BufferCounter].CanObjectType)
+					{
+						/* Fill the Tx buffers array */
+						Can_HTH_Array[TxBufferCounter++] = CanHardwareObject_arr[BufferCounter];
+
+						/* Writing the MB code as TX INACTIVE */
+						/* It is important to write the buffer as inactive as that will help checking if the buffer busy or not */
+						RAMn[BufferConfigCounter] |= (8 << 24);	/* Code = 0b1000 in bits (24 - 27) */
+					}
+					else
+					{
+						/* Fill the Rx buffers array */
+						Can_HRH_Array[RxBufferCounter++] = CanHardwareObject_arr[BufferCounter];
+
+						/* Writing the MB code as RX EMPTY */
+						RAMn[BufferConfigCounter] |= (4 << 24);	/* Code = 0b0100 in bits (24 - 27) */
+
+						/* Writing the corresponding MASK */
+						RXIMRn[RegCounter] = Config->CanHardwareObject_ptr[BufferCounter].CanHWFilterRef->CanHwFilterMask;
+					}
+				}
+				BufferCounter++;
+				RegCounter++;
+			}
+		}
+
+		else
+		{
+			/* Disable the Controller */
+			HW_Register((Config -> (CanController_ptr[Can_ControllerIndex].CanControllerBaseAddress + MCR)) |= (1 << MDIS);
+		}
 	}
 
-	
-	
-	
-	
-	
-	
-	
-	/* Initializing the FlexCan1 registers according to the configuration pointer */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/* Initializing the FlexCan2 registers according to the configuration pointer */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-	/* [SWS_Can_00246] The function Can_Init shall change the module state to CAN_READY, 
-	after initializing all controllers inside the HW Unit */
 	CAN_MODULE_STATE = CAN_READY;
+
+	ENABLE_INTERRUPTS()
 }
+
+void Can_GetVersionInfo( Std_VersionInfoType* versioninfo )
+{
+	#if (CAN_DEV_ERROR_DETECT == STD_ON)
+		if (NULL_PTR == versioninfo)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x07U, CAN_E_PARAM_POINTER);
+		}
+		else
+		{
+			/* MISRA */
+		}
+	#endif      /* CAN_DEV_ERROR_DETECT */
+	versioninfo->vendorID = CAN_VENDOR_ID;
+	versioninfo->moduleID = CAN_MODULE_ID;
+	versioninfo->sw_major_version = CAN_SW_MAJOR_VERSION;
+	versioninfo->sw_minor_version = CAN_SW_MINOR_VERSION;
+	versioninfo->sw_patch_version = CAN_SW_PATCH_VERSION;
+
+	return;
+}
+
+void Can_DeInit( void )
+{
+	DISABLE_INTERRUPTS()         /* Non-reentrant function */
+	#if (CAN_DEV_ERROR_DETECT == STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x10U,  CAN_E_TRANSITION );
+		}
+		else if ( (CAN_CS_STARTED == CAN_CONTROLLERS_STATES[0]) || (CAN_CS_STARTED == CAN_CONTROLLERS_STATES[1]) || (CAN_CS_STARTED == CAN_CONTROLLERS_STATES[2]) )
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x10U,  CAN_E_TRANSITION );
+		}
+		else
+		{
+			/* MISRA */
+		}
+	#endif      /* CAN_DEV_ERROR_DETECT */
+	uint8 Can_ControllerIndex = 0;
+	for (Can_ControllerIndex = 0 ; Can_ControllerIndex < NUM_OF_CONTROLLERS ; Can_ControllerIndex++)
+	{
+		HW_Register(CAN_BASE_ADDRESSES[Can_ControllerIndex] + MCR) |= (1 << MDIS); /* Disable the controller */
+		CAN_CONTROLLERS_STATES[Can_ControllerIndex] = CAN_CS_UNINIT;
+	}
+	CAN_MODULE_STATE = CAN_UNINIT;
+	ENABLE_INTERRUPTS()
+	return;
+}
+
+
+
 #if (CAN_BUSOFF_PROCESSING == POLLING)
-/* Can_MainFunction_BusOff() implementation here */ 
+/* Can_MainFunction_BusOff() implementation here */
 #endif /*CAN_BUSOFF_PROCESSING*/
 
 #if (CAN_TX_PROCESSING == POLLING)
@@ -320,8 +222,489 @@ void Can_Init( const Can_ConfigType* Config )
 
 #if (CAN_RX_PROCESSING == POLLING)
 /* Can_MainFunction_Read() implementation here */
-#endif /*CAN_RX_PROCESSING*/ 
+#endif /*CAN_RX_PROCESSING*/
 
+
+/* The user can select one of the baud rates from the baud rates array located in the PBcfg.c file */
+/* I think the user supposed to initialize the CAN controller without writing the bit timing When this API is enabled */
+/* When this API is enabled, after initialization the user supposed to Call this service to configure bit timing */
+/* When this function is disabled, the initialization function will write bit timing as the element number zero (BaudrateConfigID=0) */
+/* The Caller of this function must call first Can_SetControllerMode(CAN_CS_STOPPED) before calling this function or call it after initialization before starting the controller */
 #if (CAN_SET_BAUDRATE_API == STD_ON)
-/* Can_SetBaudrate() implementation here */
-#endif
+Std_ReturnType Can_SetBaudrate( uint8 Controller, uint16 BaudRateConfigID )
+{
+	#if (CAN_DEV_ERROR_DETECT == STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x0fU, CAN_E_UNINIT );
+			return E_NOT_OK;
+		}
+		else if (BaudRateConfigID > 65535)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x0fU,  CAN_E_PARAM_BAUDRATE  );
+			return E_NOT_OK;
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x0fU, CAN_E_PARAM_CONTROLLER );
+			return E_NOT_OK;
+
+		}
+		/* Need Discussion : [SWS_CAN_00500] If the requested baud rate change can not performed without a re-initialization of the CAN Controller E_NO_OK shall be returned */
+		else if (CAN_CS_STOPPED != CAN_CONTROLLERS_STATES[Controller])
+		{
+			return E_NOT_OK;
+		}
+		else
+		{
+			/* MISRA */
+		}
+	#endif /* CAN_DEV_ERROR_DETECT */
+	/* Selecting Baudrate configuration from the array of configurations according to ConfigID */
+	HW_Register((CAN_BASE_ADDRESSES[Controller]+CTRL1) |= (CanControllerBaudrateConfig_arr[BaudRateConfigID].CanControllerPropSeg)<<PROPSEG) | (CanControllerBaudrateConfig_arr[BaudRateConfigID].CanControllerSeg1)<<PSEG1) | ((CanControllerBaudrateConfig_arr[BaudRateConfigID].CanControllerSeg2)<<PSEG2) | ((CanControllerBaudrateConfig_arr[BaudRateConfigID].CanControllerSyncJumpWidth)<<RJW) | (1 << ERRMSK) | (1 << BOFFREC) ;
+	return E_OK;
+}
+#endif   /* CAN_SET_BAUDRATE_API */
+
+/* Only Can_DeInit() function can set the controller in the state CAN_CS_UNINIT */
+/* The request of Can_SetControllerMode(CAN_CS_UNINIT) is an invalid request */
+
+Std_ReturnType Can_SetControllerMode( uint8 Controller, Can_ControllerStateType Transition )
+{
+	DISABLE_INTERRUPTS()       /* This function is non-reentrant */
+	RegCounter = 0;
+	uint8 RAMCounter = 0;
+	uint8 BufferConfigCounter = 0;
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x03U, CAN_E_UNINIT );
+			return E_NOT_OK;
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x03U, CAN_E_PARAM_CONTROLLER );
+			return E_NOT_OK;
+
+		}
+		else if (CAN_CS_STARTED != Transition || CAN_CS_STOPPED != Transition || CAN_CS_SLEEP != Transition || CAN_CS_UNINIT == Transition)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x03U,  CAN_E_TRANSITION  );
+			return E_NOT_OK;
+		}
+		else
+		{
+			/* MISRA */
+		}
+
+    #endif    /* CAN_DEV_ERROR_DETECT */
+	switch ( Transition )
+	{
+		/* [SWS_Can_00384]: Each time the CAN controller state machine is triggered with the state transition value
+		CAN_CS_STARTED, the function Can_SetControllerMode shall re-initialize the CAN controller with the same
+		controller configuration set previously used by functions Can_SetBaudrate or Can_Init */
+		/* [SWS_Can_00196]: The function Can_SetControllerMode shall enable / disable interrupts that are needed in the new state */
+		/* Interrupts needed in the state STARTED: message buffer interrupts, busoff, error so we will call Can_EnableControllerInterrupts() */
+		/* Interrupts needed in the states SLEEP, STOPPED : none so we will call Can_DisableControllerInterrupts() */
+		case CAN_CS_STARTED:
+			if (TRUE == (TempConfig -> (CanController_ptr[Controller].CanControllerActivation)) )
+			{
+				RAMn = (TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + FIRSTOFFSET);       /* First element in the array is the first message buffer */
+				RXIMRn = (TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MASKOFFSET);
+				/* Re-initialize the selected controller according to the original configuration */
+				/* will use the configurations of Can_init() to re-initialize */
+
+				/* Enabling of The Clock using the PCC Module */
+				HW_Register(PCC_BASE_ADDRESS + PCC_CAN_OFFSETS[Controller]) |= (1 << 30);
+
+				/* Entering Freeze mode for re-initialization */
+				HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR)) |= ( (1 << MDIS) | (1 << HALT) );
+				while(! ((HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR))) & (1 << FRZACK) )));
+
+				/* re-initialization of the MCR */
+				HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR)) &= ~(1 << MDIS);  /* Enable the Can Controller */
+				HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR)) |= ( (1 << AEN) | (1 << IRMQ) );   /* Enable Abort enable feature */
+
+				/* re-initialization of the CTRL1 */
+				#if (CAN_SET_BAUDRATE_API == STD_OFF)
+				HW_Register((TempConfig->CanController_ptr[Controller].CanControllerBaseAddress)+CTRL1) |= ((TempConfig->CanController_ptr[Controller].CanControllerDefaultBaudrate[0].CanControllerPropSeg)<<PROPSEG) | ((TempConfig->CanController_ptr[Controller].CanControllerDefaultBaudrate[0].CanControllerSeg1)<<PSEG1) | ((TempConfig->CanController_ptr[Controller].CanControllerDefaultBaudrate[0].CanControllerSeg2)<<PSEG2) | ((TempConfig->CanController_ptr[Controller].CanControllerDefaultBaudrate[0].CanControllerSyncJumpWidth)<<RJW) | (1 << ERRMSK) | (1 << BOFFREC) ;
+				#endif
+
+				/* Enabling Controller Interrupts */
+				Can_EnableControllerInterrupts(Controller);
+
+				/* re-initialization of the message buffers */
+				for (RAMCounter = 0; RAMCounter < MAXMB[Controller]; ++RAMCounter)  /* FlexCAN0 32 MB, FlexCAN1,2 = 16 MB */
+				{
+					RAMn[RAMCounter] = 0;    /* Clearing all message buffers */
+				}
+
+				/* Setting a counter for accessing the configuration array correctly */
+				if (0 == Controller)
+				{
+					BufferCounter = 0;
+				}
+				else if (1 == Controller)
+				{
+					BufferCounter = TotalNumOfBuffers[0];
+				}
+				else
+				{
+					BufferCounter = TotalNumOfBuffers[0] + TotalNumOfBuffers[1];
+				}
+
+				for (BufferConfigCounter = 0 ; BufferConfigCounter < (TotalNumOfBuffers[Controller]) ; BufferConfigCounter+=4)
+				{
+					if (STANDARD == TempConfig->CanHardwareObject_ptr[(BufferCounter) ].CanIdType)
+					{
+						/* Writing to MB IDE bit (21) */
+						RAMn[BufferConfigCounter] |= (1 << 21);
+
+						if (TRANSMIT == TempConfig->CanHardwareObject_ptr[BufferCounter].CanObjectType)
+						{
+							/* Writing the MB code as TX INACTIVE */
+							RAMn[BufferConfigCounter] |= (8 << 24);	/* Code = 0b1000 in bits (24 - 27) */
+						}
+						else
+						{
+							/* Writing the MB code as RX EMPTY */
+							RAMn[BufferConfigCounter] |= (4 << 24);	/* Code = 0b0100 in bits (24 - 27) */
+
+							/* Writing the corresponding MASK */
+							RXIMRn[RegCounter] = TempConfig->CanHardwareObject_ptr[BufferCounter].CanHWFilterRef->CanHwFilterMask;
+						}
+					}
+
+					else /* The ID is extended */
+					{
+						/* Writing to MB IDE bit (21) */
+						RAMn[BufferConfigCounter] &= ~(1 << 21);
+
+						if (TRANSMIT == TempConfig->CanHardwareObject_ptr[BufferCounter].CanObjectType)
+						{
+							/* Writing the MB code as TX INACTIVE */
+							RAMn[BufferConfigCounter] |= (8 << 24);	/* Code = 0b1000 in bits (24 - 27) */
+						}
+						else
+						{
+							/* Writing the MB code as RX EMPTY */
+							RAMn[BufferConfigCounter] |= (4 << 24);	/* Code = 0b0100 in bits (24 - 27) */
+
+							/* Writing the corresponding MASK */
+							RXIMRn[RegCounter] = TempConfig->CanHardwareObject_ptr[BufferCounter].CanHWFilterRef->CanHwFilterMask;
+						}
+					}
+					BufferCounter++;
+					RegCounter++;
+				}
+			}
+			else
+			{
+				/* Disable the Controller */
+				HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR)) |= (1 << MDIS);
+			}
+
+
+			/* Negate MCR(HALT) To Exit freeze mode */
+			HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR)) &= ~(1 << HALT);
+
+
+			/* wait for module to exit freeze mode */
+			while(((HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR))) & (1 << FRZACK) )));
+
+			/* wait for module to be ready */
+			while(((HW_Register((TempConfig -> (CanController_ptr[Controller].CanControllerBaseAddress + MCR))) & (1 << NOTRDY) )));
+
+			CAN_CONTROLLERS_STATES[Controller] = CAN_CS_STARTED;
+			break;
+
+		case CAN_CS_STOPPED:      /* Freeze mode */
+			HW_Register((CAN_BASE_ADDRESSES[Controller] + MCR)) |= ( (1 << MDIS) | (1 << HALT) );
+			while(! ((HW_Register((CAN_BASE_ADDRESSES[Controller] + MCR))) & (1 << FRZACK) )));
+
+			/* Disabling Controller interrupts */
+			Can_DisableControllerInterrupts(Controller);
+
+			CAN_CONTROLLERS_STATES[Controller] = CAN_CS_STOPPED;
+			break;
+
+		case CAN_CS_SLEEP:     /* Freeze mode */
+			HW_Register((CAN_BASE_ADDRESSES[Controller] + MCR)) |= ( (1 << MDIS) | (1 << HALT) );
+			while(! ((HW_Register((CAN_BASE_ADDRESSES[Controller] + MCR))) & (1 << FRZACK) )));
+			/* Disabling controller interrupts */
+			Can_DisableControllerInterrupts(Controller);
+
+			CAN_CONTROLLERS_STATES[Controller] = CAN_CS_SLEEP;
+
+			break;
+	}
+
+	ENABLE_INTERRUPTS()
+	return E_OK;
+}
+
+
+/* This function shall disable all interrupts of a CAN controller */
+/* The default by the init function is that all the interrupts of the can controller are disabled if the Tx and Rx processing are set to be polling */
+/* The default by the init function is that all the message buffer interrupts are disabled */
+/* The user need to call Can_EnableControllerInterrupts to enable message buffers interrupts */
+/* Types of interrupts in each Can Controller :
+1) Message buffer interrupts (IMASK1 Register)
+2) Warning interrupts (MCR_21, ESR1)
+3) BusOff interrupt (CTRL1_15, ESR1_2)
+4) Error interrupt (CTRL1_14, ESR1)
+5) Tx warning interrupt (MCR_21, CTRL1_11, ESR1_17)
+6) Rx warning interrupt (MCR_21, CTRL1_10, ESR1_16)
+*/
+
+void Can_DisableControllerInterrupts( uint8 Controller )
+{
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x04U, CAN_E_UNINIT );
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x04U, CAN_E_PARAM_CONTROLLER );
+		}
+		else
+		{
+			/* MISRA */
+		}
+
+    #endif    /* CAN_DEV_ERROR_DETECT */
+
+	/* [SWS_Can_00049]: The function Can_DisableControllerInterrupts shall access the CAN controller registers to
+	disable all interrupts for that CAN controller only, if interrupts for that CAN Controller are enabled */
+	if ((NumOfIntDis[Controller]++) == 0)      /* This function has not been called before = interrupts enabled */
+	{
+		/* Disabling the controller interrupts */
+		HW_Register((CAN_BASE_ADDRESSES[Controller] + IMASK1)) &= (0x0);   /* Clear all register bits */
+		HW_Register((CAN_BASE_ADDRESSES[Controller]) + MCR) &= ~(1 << WRNEN);
+		HW_Register((CAN_BASE_ADDRESSES[Controller]) + CTRL1) &= ~( (1 << BOFFMSK) | (1 << RWRNMSK) | (1 << TWRNMSK) ) ;
+	}
+	else
+	{
+		/* MISRA */
+	}
+
+	return;
+}
+
+
+void Can_EnableControllerInterrupts( uint8 Controller )
+{
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x04U, CAN_E_UNINIT );
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x04U, CAN_E_PARAM_CONTROLLER );
+		}
+		else
+		{
+			/* MISRA */
+		}
+    #endif    /* CAN_DEV_ERROR_DETECT */
+	if ( 0 == (NumOfIntDis[Controller]) )
+	{
+		/* [SWS_Can_00208]: The function Can_EnableControllerInterrupts shall perform no action when
+		Can_DisableControllerInterrupts has not been called before */
+	}
+	else if ( --(NumOfIntDis[Controller]) == 0)   /* The disable function has been called before */
+	{
+		/* Enabling the interrupts */
+		HW_Register((CAN_BASE_ADDRESSES[Controller] + IMASK1)) |= 0xffffffff;   /* Set all register bits */
+		/* Enable warning interrupts and the busoff interrupt */
+		HW_Register((CAN_BASE_ADDRESSES[Controller])+MCR) |= (1 << WRNEN);
+		HW_Register((CAN_BASE_ADDRESSES[Controller])+CTRL1) |= ( (1 << BOFFMSK) | (1 << RWRNMSK) | (1 << TWRNMSK) ) ;
+	}
+	else
+	{
+		/* MISRA */
+	}
+	return;
+}
+
+/* To get error state for each controller we must read the fault confinement bits in the ESR register */
+
+Std_ReturnType Can_GetControllerErrorState( uint8 ControllerId, Can_ErrorStateType* ErrorStatePtr )
+{
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x11U, CAN_E_UNINIT );
+			return E_NOT_OK;
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x11U, CAN_E_PARAM_CONTROLLER );
+			return E_NOT_OK;
+		}
+		else if (NULL_PTR == ErrorStatePtr)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x11U, CAN_E_PARAM_POINTER );
+			return E_NOT_OK;
+		}
+		else
+		{
+			/* MISRA */
+		}
+    #endif    /* CAN_DEV_ERROR_DETECT */
+	if ( !(HW_Register((CAN_BASE_ADDRESSES[Controller]) + ESR1) & (48)) )    /* (4-5) bits in ESR1 */
+	{
+		*ErrorStatePtr = CAN_ERRORSTATE_ACTIVE;
+	}
+	else if ( 1 == (HW_Register((CAN_BASE_ADDRESSES[Controller]) + ESR1) & (48)) )
+	{
+		*ErrorStatePtr = CAN_ERRORSTATE_PASSIVE;
+	}
+	else
+	{
+		*ErrorStatePtr = CAN_ERRORSTATE_BUSOFF;
+	}
+	return E_OK;
+}
+
+Std_ReturnType Can_GetControllerMode( uint8 Controller, Can_ControllerStateType* ControllerModePtr )
+{
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x12U, CAN_E_UNINIT );
+			return E_NOT_OK;
+		}
+		else if (Controller > NUM_OF_CONTROLLERS)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x12U, CAN_E_PARAM_CONTROLLER );
+			return E_NOT_OK;
+		}
+		else if (NULL_PTR == ControllerModePtr)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x12U, CAN_E_PARAM_POINTER );
+			return E_NOT_OK;
+		}
+		else
+		{
+			/* MISRA */
+		}
+    #endif    /* CAN_DEV_ERROR_DETECT */
+
+	*ControllerModePtr = CAN_CONTROLLERS_STATES[Controller];
+	return E_OK;
+}
+
+/* We are gonna check the availability of the message buffer by checking the MB code */
+/* If the buffer code is DATA, that means the buffer is BUSY */
+/* This function will access the Can_HTH_Array according to the argument Hth */
+/* We will know the address of the message buffer based on its position in Can_HTH_Array and the fact that they are
+   sorted as : Can0 MBs, Can1 MBs, Can2 MBs */
+/* The design of this function is based on the previous comment, so the user configurations must be consistent with
+   this design before attempting to use this function */
+
+/* [SWS_Can_00212] ⌈ The function Can_Write shall perform following actions if the hardware transmit object is free:
+1) The mutex for that HTH is set to ‘signaled’
+2) The ID, Data Length and SDU are put in a format appropriate for the hardware (if necessary) and copied in the appropriate hardware registers/buffers.
+3) All necessary control operations to initiate the transmit are done
+4) The mutex for that HTH is released
+5) The function returns with E_OK (SRS_Can_01049)
+*/
+Std_ReturnType Can_Write( Can_HwHandleType Hth, const Can_PduType* PduInfo )
+{
+    #if (CAN_DEV_ERROR_DETECT==STD_ON)
+		if (CAN_READY != CAN_MODULE_STATE)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x06U, CAN_E_UNINIT );
+			return E_NOT_OK;
+		}
+		else if (Hth < 0 || Hth > (NUM_OF_TX_BUFFERS_0 + NUM_OF_TX_BUFFERS_1 + NUM_OF_TX_BUFFERS_2 - 1) ) /* Hth is out of range */
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x06U, CAN_E_PARAM_HANDLE );
+			return E_NOT_OK;
+		}
+		else if (PduInfo->length > 8)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x06U, CAN_E_PARAM_DATA_LENGTH );
+			return E_NOT_OK;
+		}
+		else if (NULL_PTR == PduInfo)
+		{
+			Det_ReportError(CAN_MODULE_ID, CAN_INDEX, 0x06U, CAN_E_PARAM_POINTER );
+			return E_NOT_OK;
+		}
+		else
+		{
+			/* MISRA */
+		}
+	#endif    /* CAN_DEV_ERROR_DETECT */
+
+	IFLAG1 = HW_Register(Can_HTH_Array[Hth].CanControllerRef->CanControllerBaseAddress + IFLAGOFFSET);
+	/* Calculating the address of the requested message buffer */
+	uint32 BufferAddress;
+	uint8 DistanceFromBeggining;
+	uint8* TempDataPtr = NULL_PTR;
+	uint8 length = PduInfo->length;
+	if ( (0 == Hth) || (NUM_OF_TX_BUFFERS_0 == Hth) || ( (NUM_OF_TX_BUFFERS_0 + NUM_OF_TX_BUFFERS_1) == Hth ) )      /* The buffer is at the begining of the Can Controller */
+	{
+		BufferAddress = ( Can_HTH_Array[Hth].CanControllerRef->CanControllerBaseAddress + FIRSTOFFSET );
+		DistanceFromBeggining = 0;
+	}
+	else
+	{
+		if (Hth > (NUM_OF_TX_BUFFERS_0 + NUM_OF_TX_BUFFERS_1) )
+		{
+			DistanceFromBeggining = (Hth - (NUM_OF_TX_BUFFERS_0 + NUM_OF_TX_BUFFERS_1) );
+		}
+		else if (Hth > NUM_OF_TX_BUFFERS_0)
+		{
+			DistanceFromBeggining = (Hth - (NUM_OF_TX_BUFFERS_0) );
+		}
+		else
+		{
+			DistanceFromBeggining = Hth;
+		}
+		BufferAddress = ( Can_HTH_Array[Hth].CanControllerRef->CanControllerBaseAddress + (FIRSTOFFSET + DistanceFromBeggining * 4) );
+	}
+
+	/* Checking if the message buffer is free (The code of the message buffer is INACTIVE)*/
+	if (MB_CS_INACTIVE == ( HW_Register( BufferOffset ) & (0x0f000000) ) )
+	{
+		TempDataPtr = (uint32*)BufferAddress + 2;         /* Pointing to the first byte of the Data */
+		/* Proceed in the transmission process */
+
+		/* Clear the corresponding IFLAG bit */
+		IFLAG1 |= (1 << DistanceFromBeggining);
+		/* Write the payload data */
+		while (length--)
+		{
+			*(TempDataPtr++) = *( (PduInfo->sdu)++ );
+		}
+
+		/* Write the ID */
+		/* The Can_IdType is 32 bit which the two most significant bits discriminate between StdCan and Canfd */
+		/* Since we are not using CanFD we will ignore the two most significant bits */
+		HW_Register ( (uint32*)(BufferAddress) + 1 ) |= (uint32)(PduInfo->id) ;
+
+		/* Activate MB for transmitting and writing the DLC */
+		/* SRR = 1 (Tx frame) */
+		/* EDL,BRS,ESI=0: CANFD not used */
+		/* RTR = 0: data, not remote tx request frame */
+		HW_Register(BufferAddress) |= ( ( (PduInfo->length) << 16 ) | (MB_CS_DATA << 24) | (1 << 22));
+		HW_Register(BufferAddress) &= ~( 7 << 29 ) | (1 << 20));
+	}
+	else if ( MB_CS_DATA == ( HW_Register( BufferOffset ) & (0x0f000000) ) )
+	{
+		/* [SWS_Can_00213]: The function Can_Write shall perform no actions if the hardware transmit object is busy with another transmit request for an L-PDU:
+		1. The transmission of the other L-PDU shall not be cancelled and the function Can_Write is left without any actions.
+		2. The function Can_Write shall return CAN_BUSY */
+		return CAN_BUSY;
+	}
+	else
+	{
+		/* MISRA */
+	}
+	return E_OK;
+}
