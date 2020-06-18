@@ -1,7 +1,7 @@
 /*
  * Det.h
  *
- *  Created on: Feb 23, 2020
+ *  Created on: Mar 2, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -49,4 +49,5 @@ Std_ReturnType Det_ReportError( uint16 ModuleId, uint8 InstanceId, uint8 ApiId, 
 
 /* To start the Development Error Tracer */
 void Det_Start( void);
+
 #endif /* DET_H_ */

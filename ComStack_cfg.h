@@ -1,7 +1,7 @@
 /*
  * ComStack_cfg.h
  *
- *  Created on: Mar 1, 2020
+ *  Created on: Mar 8, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -40,7 +40,4 @@ If segmentation is used it depends on the maximum length of a segmented N-PDU (i
 /* typedef uint32 PduLengthType; */
 typedef uint16 PduLengthType;
 
-/* Used to store the identifier of a partial network cluster */
-/* We will not use it */
-typedef uint8 PNCHandleType;
 #endif /* COMSTACK_CFG_H_ */

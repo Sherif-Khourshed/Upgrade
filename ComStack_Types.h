@@ -1,7 +1,7 @@
 /*
  * ComStack_Types.h
  *
- *  Created on: Mar 1, 2020
+ *  Created on: Mar 7, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -41,7 +41,7 @@
 #error "The AR version of ComStack_cfg.h does not match the expected version"
 #endif
 
-/* Software Version checking between Dio_Cfg.h and Dio.h files */
+/* Software Version checking between ComStack_cfg.h and ComStackTypes files */
 #if(COMSTACK_TYPES_SW_MAJOR_VERSION != COMSTACK_CFG_SW_MAJOR_VERSION)\
 	||(COMSTACK_TYPES_SW_MINOR_VERSION != COMSTACK_CFG_SW_MINOR_VERSION)\
 	||(COMSTACK_TYPES_SW_PATCH_VERSION != COMSTACK_CFG_SW_PATCH_VERSION)
@@ -55,6 +55,24 @@ typedef struct
 	uint8*			MetaDataPtr;
 	PduLengthType	SduLength;
 }PduInfoType;
+
+
+/* defines the configuration ID. An ID of 0 is the default configuration.
+ An ID greater than 0 shall identify a configuration for Pretended Networking.
+ There is more than 1 configuration possible */
+typedef uint8 IcomConfigIdType;
+
+/* defines the errors which can occur when activating or deactivating Pretended Networking */
+typedef enum
+{
+	ICOM_SWITCH_E_OK = 0x00,		/* The activation of Pretended Networking was successful */
+	ICOM_SWITCH_E_FAILED = 0x01,	/* The activation of Pretended Networking was not successful */
+}IcomSwitch_ErrorType;
+
+
+/* Used to store the identifier of a partial network cluster */
+/* We will not use it */
+typedef uint8 PNCHandleType;
 
 /* parameter to which the value has to be changed (BS or STmin) */
 typedef enum
@@ -96,16 +114,6 @@ typedef struct
 /* Variables of the type NetworkHandleType shall be used to store the identifier of a communication channel */
 typedef uint8 NetworkHandleType;
 
-/* defines the configuration ID. An ID of 0 is the default configuration.
- An ID greater than 0 shall identify a configuration for Pretended Networking.
- There is more than 1 configuration possible */
-typedef uint8 IcomConfigIdType;
 
-/* defines the errors which can occur when activating or deactivating Pretended Networking */
-typedef enum
-{
-	ICOM_SWITCH_E_OK = 0x00,		/* The activation of Pretended Networking was successful */
-	ICOM_SWITCH_E_FAILED = 0x01,	/* The activation of Pretended Networking was not successful */
-}IcomSwitch_ErrorType;
 
 #endif /* COMSTACK_TYPES_H_ */

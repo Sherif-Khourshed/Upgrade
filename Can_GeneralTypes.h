@@ -1,7 +1,7 @@
 /*
  * Can_GeneralTypes.h
  *
- *  Created on: Mar 1, 2020
+ *  Created on: Mar 7, 2020
  *      Author: Sherif_Khourshed
  */
 
@@ -33,6 +33,20 @@
 #error "The AR version of Std_Types.h does not match the expected version"
 #endif
 
+/* From ComStack_cfg.h */
+/* The size of this global type depends on the maximum number of PDUs used */
+/* typedef uint8 PduIdType; */
+//typedef uint16 PduIdType;
+
+/* PduId (swPduHandle), SduLength (length), SduData (sdu), and CanId (id) for any CAN L-SDU */
+typedef struct
+{
+	PduIdType	swPduHandle;
+	uint8		length;
+	Can_IdType	id;
+	uint8*		sdu;
+}Can_PduType;
+
 /*
 Standard32Bit--0..0x400007FF
 Extended32Bit--0..0xDFFFFFFF
@@ -52,17 +66,6 @@ For CAN hardware units with more than 255 HW objects use extended range.
 */
 /* typedef uint8 Can_HwHandleType; */ /* For CAN hardware units with less than 255 HW objects  */
 typedef uint16 Can_HwHandleType;  /* For CAN hardware units with more than 255 HW objects use extended range */
-
-
-/* PduId (swPduHandle), SduLength (length), SduData (sdu), and CanId (id) for any CAN L-SDU */
-typedef struct
-{
-	PduIdType	swPduHandle;
-	uint8		length;
-	Can_IdType	id;
-	uint8*		sdu;
-}Can_PduType;
-
 
 /* Hardware Object Handle including its corresponding CAN Controller, CanDrv and the specific CanId */
 typedef struct
@@ -91,10 +94,9 @@ typedef enum
 	CAN_CS_SLEEP = 0x03,	/* CAN controller state SLEEP */
 }Can_ControllerStateType;
 
-typedef enum
-{
-	CAN_BUSY = 0x02,
-}Can_ReturnType;
+
+
+/* CAN Transceiver */
 
 /* Operating modes of the CAN Transceiver Driver */
 typedef enum
