@@ -28,6 +28,7 @@
 #define CAN_CFG_AR_RELEASE_MINOR_VERSION   	(3U)
 #define CAN_CFG_AR_RELEASE_REVISION_VERSION (1U)
 
+#include "Can_PBcfg.h"
 #include "Std_Types.h"
 /* AUTOSAR Version checking between Std Types and Can_cfg Module */
 #if(CAN_CFG_AR_RELEASE_MAJOR_VERSION != STD_TYPES_AR_RELEASE_MAJOR_VERSION)\
@@ -36,17 +37,20 @@
 #error "The AR version of Std_Types.h does not match the expected version"
 #endif
 
+#define CAN_0_BASE_ADDRESS  ((uint32)0x40024000)
+#define CAN_1_BASE_ADDRESS  ((uint32)0x40025000)
+#define CAN_2_BASE_ADDRESS  ((uint32)0x4002B000)
+#define CAN_0_ID            ((uint8)0x00)
+#define CAN_1_ID            ((uint8)0x01)
+#define CAN_2_ID            ((uint8)0x02)
+#define CONTROLLERS_NUMBER  ((uint8)0x01)
+#define CONTROLLER_0_BDR_ID ((uint8)0x00)
+#define INTERRUPT           ((uint8)0x00)
+#define MIXED               ((uint8)0x01)
+#define POLLING             ((uint8)0x02)
+#define CLOCK               (80000000)            /* Can Clock in Hz */
 
-#define CAN_0_BASE_ADDRESS  (uint32)(0x40024000)
-#define CAN_1_BASE_ADDRESS  (uint32)(0x40025000)
-#define CAN_2_BASE_ADDRESS  (uint32)(0x4002B000)
-#define CAN_0_ID            (uint8)(0x00U)
-#define CAN_1_ID            (uint8)(0x01U)
-#define CAN_2_ID            (uint8)(0x02U)
-#define INTERRUPT           (0x00U)
-#define POLLING             (0x01U)
-#define MIXED               (0x02U)
-
+typedef float64 McuClockReferencePoint;
 /*******************************************************************
                       cfg_Can_General_Container
  ******************************************************************/
@@ -99,6 +103,14 @@
  ******************************************************************/
 /* Defines if a CAN controller is used in the configuration */
 #define CAN_CONTROLLER_ACTIVATION			(STD_ON)
+/* Enables / disables API Can_MainFunction_BusOff() for handling busoff events in polling mode */
+#define CanBusoffProcessing 				(INTERRUPT)
+/* Enables / disables API Can_MainFunction_Read() for handling PDU reception events in polling mode */
+#define CanRxProcessing 					(INTERRUPT)
+/* Enables / disables API Can_MainFunction_Write() for handling PDU transmission events in polling mode */
+#define CanTxProcessing 					(INTERRUPT)
+/* Enables / disables API Can_MainFunction_Wakeup() for handling wakeup events in polling mode */
+#define CanWakeupProcessing 				(INTERRUPT)
 
 /* Adds / removes the service Can_CheckWakeup() from the code*/
 /* True: Can_CheckWakeup can be used, False: Can_CheckWakeup cannot be used*/
@@ -116,9 +128,9 @@
 /* Symbolic Names generated for this parameters */
 typedef uint16 Can_ObjectId;
 #define HRH0_0 ((Can_ObjectId)0x00U)
-#define HRH1_0 ((Can_ObjectId)0x01U)
-#define HTH0_0 ((Can_ObjectId)0x02U)
-#define HTH1_0 ((Can_ObjectId)0x03U)
+#define HTH0_0 ((Can_ObjectId)0x01U)
+#define HRH0_1 ((Can_ObjectId)0x02U)
+#define HTH0_1 ((Can_ObjectId)0x03U)
 /********************END_cfg_Can_Hardware_Object********************/
 
 

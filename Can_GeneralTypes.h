@@ -36,16 +36,7 @@
 /* From ComStack_cfg.h */
 /* The size of this global type depends on the maximum number of PDUs used */
 /* typedef uint8 PduIdType; */
-//typedef uint16 PduIdType;
-
-/* PduId (swPduHandle), SduLength (length), SduData (sdu), and CanId (id) for any CAN L-SDU */
-typedef struct
-{
-	PduIdType	swPduHandle;
-	uint8		length;
-	Can_IdType	id;
-	uint8*		sdu;
-}Can_PduType;
+typedef uint16 PduIdType;
 
 /*
 Standard32Bit--0..0x400007FF
@@ -57,6 +48,16 @@ The two most significant bits specify the frame type:
 11 CAN FD frame with Extended CAN ID
 */
 typedef uint32 Can_IdType;
+
+/* PduId (swPduHandle), SduLength (length), SduData (sdu), and CanId (id) for any CAN L-SDU */
+typedef struct
+{
+	PduIdType	swPduHandle;
+	uint8		length;
+	Can_IdType	id;
+	uint8*		sdu;
+}Can_PduType;
+
 
 /*
 Standard--0..0x0FF

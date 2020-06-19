@@ -28,6 +28,7 @@
 #define CAN_PBCFG_AR_RELEASE_MINOR_VERSION   	(3U)
 #define CAN_PBCFG_AR_RELEASE_REVISION_VERSION 	(1U)
 
+//#include "Can_cfg.h"
 #include "Std_Types.h"
 /* AUTOSAR Version checking between Std Types and Can_PBcfg Module */
 #if(CAN_PBCFG_AR_RELEASE_MAJOR_VERSION != STD_TYPES_AR_RELEASE_MAJOR_VERSION)\
@@ -35,57 +36,6 @@
 		||(CAN_PBCFG_AR_RELEASE_REVISION_VERSION != STD_TYPES_AR_RELEASE_REVISION_VERSION)
 #error "The AR version of Std_Types.h does not match the expected version"
 #endif
-
-
-
-/*******************************************************************
-                      PBcfg_Can_General_Container
- ******************************************************************/
-/********************END_PBcfg_Can_General_Container*****************/
-
-
-/*******************************************************************
-                      PBcfg_Can_Controller_Container
- ******************************************************************/
-/* Enables / disables API Can_MainFunction_BusOff() for handling busoff events in polling mode */
-typedef enum
-{
-	INTERRUPT, POLLING
-}CanBusoffProcessing;
-
-/* Enables / disables API Can_MainFunction_Read() for handling PDU reception events in polling mode */
-typedef enum
-{
-	INTERRUPT, POLLING, MIXED
-}CanRxProcessing;
-
-/* Enables / disables API Can_MainFunction_Write() for handling PDU transmission events in polling mode */
-typedef enum
-{
-	INTERRUPT, POLLING, MIXED
-}CanTxProcessing;
-
-/* Enables / disables API Can_MainFunction_Wakeup() for handling wakeup events in polling mode */
-typedef enum
-{
-	INTERRUPT, POLLING
-}CanWakeupProcessing;
-
-typedef struct
-{
-	/* Specifies the CAN controller base address */
-	uint32 CanControllerBaseAddress;
-	/* This parameter provides the controller ID which is unique in a given CAN Driver */
-	/* The value for this parameter starts with 0 and continue without any gaps */
-	uint8 CanControllerId;
-	/*Reference to baudrate configuration container configured for the Can Controller. Reference to [ CanControllerBaudrateConfig ]*/
-	CanControllerBaudrateConfig* CanControllerDefaultBaudrate;
-
-	/* MCU Driver is missing */
-	/* Reference to the CPU clock configuration, which is set in the MCU driver configuration */
-	//ptr* CanCpuClockRef;
-}CanController;
-/********************END_PBcfg_Can_Controller_Container********************/
 
 
 /*******************************************************************
@@ -110,8 +60,50 @@ typedef struct
 
 
 /*******************************************************************
+                      PBcfg_Can_Controller_Container
+ ******************************************************************/
+typedef struct
+{
+	/* Specifies the CAN controller base address */
+	uint32 CanControllerBaseAddress;
+	/* This parameter provides the controller ID which is unique in a given CAN Driver */
+	/* The value for this parameter starts with 0 and continue without any gaps */
+	uint8 CanControllerId;
+	/* Reference to baudrate configuration container configured for the Can Controller. Reference to [ CanControllerBaudrateConfig ] */
+	CanControllerBaudrateConfig* CanControllerDefaultBaudrate;
+
+	/* MCU Driver is missing */
+	/* Reference to the CPU clock configuration, which is set in the MCU driver configuration */
+	//ptr* CanCpuClockRef;
+}CanController;
+/********************END_PBcfg_Can_Controller_Container********************/
+
+
+/*******************************************************************
+                  PBcfg_Can_Main_Function_RW_Periods
+ ******************************************************************/
+/* This parameter describes the period for cyclic call to Can_MainFunction_Read or Can_MainFunction_Write */
+/* depending on the referring item. Unit is seconds. Different poll-cycles will be configurable */
+/* if more than one CanMainFunctionPeriod is configured. In this case multiple Can_MainFunction_Read() */
+/* or Can_MainFunction_Write() will be provided by the CAN Driver module */
+typedef struct
+{
+	float32 CanMainFunctionPeriod;
+}CanMainFunctionRWPeriods;
+/****************END_PBcfg_Can_Main_Function_RW_Periods****************/
+
+
+
+/*******************************************************************
                   PBcfg_Can_Hardware_Object
  ******************************************************************/
+/* Symbolic Names generated for this parameters */
+typedef uint16 Can_ObjectId;
+#define HRH0_0 ((Can_ObjectId)0x00U)
+#define HTH0_0 ((Can_ObjectId)0x01U)
+#define HRH0_1 ((Can_ObjectId)0x02U)
+#define HTH0_1 ((Can_ObjectId)0x03U)
+
 /* Specifies the type (Full-CAN or Basic-CAN) of a hardware object */
 typedef enum
 {
@@ -136,6 +128,9 @@ typedef enum
 
 typedef struct
 {
+	Can_HandleType HandleType;
+	CanIdType IdType;
+	CanObjectType ObjectType;
 	/* Enables polling of this hardware object */
 	boolean CanHardwareObjectUsesPolling;
 	/* Number of hardware objects used to implement one HOH */
@@ -150,8 +145,8 @@ typedef struct
 	boolean CanTriggerTransmitEnable;
 	/* Reference to CAN Controller to which the HOH is associated to */
 	CanController* CanControllerRef;
-	/* Reference to CAN Controller to which the HOH is associated to */
-	CanMainFunctionRWPeriods* CanMainFunctionRWPeriodRef;
+	/* Reference to CanMainFunctionPeriod */
+	//CanMainFunctionRWPeriods* CanMainFunctionRWPeriodRef;
 }CanHardwareObject;
 /********************END_PBcfg_Can_Hardware_Object********************/
 
@@ -160,16 +155,19 @@ typedef struct
 /*******************************************************************
                      PBcfg_Can_Hardware_Filter
  ******************************************************************/
-/* Specifies (together with the filter mask) the identifiers range that passes the hardware filter */
-uint32 CanHwFilterCode;
-/* Describes a mask for hardware-based filtering of CAN identifiers */
-/* The CAN identifiers of incoming messages are masked with the appropriate CanFilterMaskValue */
-/* Bits holding a 0 mean don't care, i.e. do not compare the message's identifier in the respective bit position */
-/* The mask shall be build by filling with leading 0 */
-/* In case of CanIdType  EXTENDED or MIXED a 29 bit mask shall be build */
-/* In case of CanIdType  STANDARD a 11 bit mask shall be buil*/
-/* dependency: The filter mask settings must be known by the CanIf configuration for optimization of the SW filters */
-uint32 CanHwFilterMask;
+typedef struct
+{
+	/* Specifies (together with the filter mask) the identifiers range that passes the hardware filter */
+	uint32 CanHwFilterCode;
+	/* Describes a mask for hardware-based filtering of CAN identifiers */
+	/* The CAN identifiers of incoming messages are masked with the appropriate CanFilterMaskValue */
+	/* Bits holding a 0 mean don't care, i.e. do not compare the message's identifier in the respective bit position */
+	/* The mask shall be build by filling with leading 0 */
+	/* In case of CanIdType  EXTENDED or MIXED a 29 bit mask shall be build */
+	/* In case of CanIdType  STANDARD a 11 bit mask shall be buil*/
+	/* dependency: The filter mask settings must be known by the CanIf configuration for optimization of the SW filters */
+	uint32 CanHwFilterMask;
+}CanHwFilter;
 /********************END_PBcfg_Can_Hardware_Filter********************/
 
 /*******************************************************************
@@ -186,14 +184,6 @@ typedef struct
 
 
 
-/*******************************************************************
-                  PBcfg_Can_Main_Function_RW_Periods
- ******************************************************************/
-typedef struct
-{
-	float32 CanMainFunctionPeriod;
-}CanMainFunctionRWPeriods;
-/****************END_PBcfg_Can_Main_Function_RW_Periods****************/
 
 
 #endif /* CAN_PBCFG_H_ */
