@@ -1,0 +1,13 @@
+/*
+ * Det.c
+ *
+ *  Created on: Mar 2, 2020
+ *      Author: Sherif_Khourshed
+ */
+
+#include "Det.h"
+
+Std_ReturnType Det_ReportError(uint16 ModuleId, uint8 InstanceId, uint8 ApiId, uint8 ErrorId)
+{
+	return E_OK;
+}
